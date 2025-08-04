@@ -11,7 +11,7 @@ type Suggestion = {
   priceEstimate: string;
 };
 
-// Initialize Firebase admin if credentials exist
+// Firebase admin init if available
 let db: ReturnType<typeof getFirestore> | null = null;
 if (process.env.FIREBASE_SERVICE_ACCOUNT) {
   try {
@@ -31,7 +31,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
 });
 
-// Stubbed gift engine; replace with actual implementation later
+// Stubbed fallback gift engine
 async function runGiftEngine(description: string): Promise<Suggestion[]> {
   return [
     {
@@ -67,7 +67,7 @@ function safeParseSuggestions(raw: string): Suggestion[] {
       }));
     }
   } catch {
-    // ignore parse errors
+    // ignore
   }
 
   return [
@@ -148,11 +148,13 @@ Return a JSON object in the same shape as demo mode.
     { role: 'user', content: message },
   ];
 
-  // Try models in order of preference
-  const modelCandidates = ['gpt-4-0613', 'gpt-4', 'gpt-3.5-turbo'];
+  // Prefer the cheaper model first
+  const modelCandidates = ['gpt-3.5-turbo', 'gpt-4-0613', 'gpt-4'];
   let response: any = null;
   let usedModel = '';
-  let lastError: any = null;
+  let suggestions: Suggestion[] = [];
+  let rawContent = '';
+  let fallbackDueToQuota = false;
 
   for (const model of modelCandidates) {
     try {
@@ -160,38 +162,54 @@ Return a JSON object in the same shape as demo mode.
         model,
         messages,
         temperature: 0.7,
-        max_tokens: 700,
+        max_tokens: 600, // reduced to conserve tokens/cost
       });
       usedModel = model;
       break;
     } catch (e: any) {
-      lastError = e;
       const msg = e.toString();
-      if (
-        !msg.toLowerCase().includes('does not exist') &&
-        !msg.toLowerCase().includes('you do not have access')
-      ) {
-        break; // non-model-access error, bail
+      // On quota/429, break and fallback to stub
+      if (e.status === 429 || msg.toLowerCase().includes('quota')) {
+        fallbackDueToQuota = true;
+        break;
       }
-      // otherwise try next model
+      // If model not available, try next
+      if (
+        msg.toLowerCase().includes('does not exist') ||
+        msg.toLowerCase().includes('you do not have access')
+      ) {
+        continue;
+      }
+      // other error: bail
+      lastError: any = e;
+      break;
     }
   }
 
+  if (fallbackDueToQuota) {
+    suggestions = await runGiftEngine(message);
+    return NextResponse.json({
+      assistant: { content: 'Quota exceeded; returning fallback suggestions.' },
+      suggestions,
+      usedModel: 'fallback-stub',
+      note: 'OpenAI quota limit hit, using static engine.',
+    });
+  }
+
   if (!response) {
-    console.error('All model attempts failed:', lastError);
     return NextResponse.json(
-      { error: lastError?.message || 'OpenAI error, no model succeeded' },
+      { error: 'No model succeeded or unexpected error', usedModel },
       { status: 500 }
     );
   }
 
   const assistantMessage = response.choices?.[0]?.message;
-  const rawContent: string = assistantMessage?.content || '';
+  rawContent = assistantMessage?.content || '';
 
   // Parse structured suggestions
-  let suggestions: Suggestion[] = safeParseSuggestions(rawContent);
+  suggestions = safeParseSuggestions(rawContent);
 
-  // Demo fallback: supplement if only fallback suggestion present
+  // If demo and fallback only, supplement with stubbed engine
   if (mode === 'demo' && suggestions.length === 1 && suggestions[0].giftId === 'fallback-1') {
     const supplemental = await runGiftEngine(message);
     suggestions = supplemental;
@@ -204,4 +222,4 @@ Return a JSON object in the same shape as demo mode.
   });
 }
 
-export {}; // ensure this file is treated as a module
+export {}; // ensure module context
