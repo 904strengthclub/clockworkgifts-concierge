@@ -11,7 +11,7 @@ type Suggestion = {
   priceEstimate: string;
 };
 
-// Firebase admin init (only if service account is present)
+// Initialize Firebase admin if credentials exist
 let db: ReturnType<typeof getFirestore> | null = null;
 if (process.env.FIREBASE_SERVICE_ACCOUNT) {
   try {
@@ -23,7 +23,6 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     }
     db = getFirestore();
   } catch (e) {
-    // swallow; downstream code can still run in demo mode
     console.warn('Firebase init failed:', (e as any).message || e);
   }
 }
@@ -32,7 +31,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
 });
 
-// Simple stub for gift engine; replace with real logic or import
+// Stubbed gift engine; replace with actual implementation later
 async function runGiftEngine(description: string): Promise<Suggestion[]> {
   return [
     {
@@ -43,7 +42,7 @@ async function runGiftEngine(description: string): Promise<Suggestion[]> {
     },
     {
       title: 'Artisanal Candle Set',
-      reason: 'She likes candles and ambience; this set elevates that.',
+      reason: 'She likes candles and ambiance; this set elevates that.',
       giftId: 'candle-set-2',
       priceEstimate: '$30',
     },
@@ -57,7 +56,6 @@ async function runGiftEngine(description: string): Promise<Suggestion[]> {
 }
 
 function safeParseSuggestions(raw: string): Suggestion[] {
-  // Try to extract JSON first
   try {
     const parsed = JSON.parse(raw);
     if (parsed && Array.isArray(parsed.suggestions)) {
@@ -69,10 +67,9 @@ function safeParseSuggestions(raw: string): Suggestion[] {
       }));
     }
   } catch {
-    // fallthrough
+    // ignore parse errors
   }
 
-  // Fallback: wrap the entire assistant content as one suggestion
   return [
     {
       title: raw.slice(0, 80),
@@ -85,14 +82,18 @@ function safeParseSuggestions(raw: string): Suggestion[] {
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({} as any));
-  const { mode = 'demo', message = '', conversationHistory = [] } = body;
+  const { mode = 'demo', message = '', conversationHistory = [], userId, recipientId } = body;
+
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json({ error: 'Missing OPENAI_API_KEY' }, { status: 500 });
+  }
 
   // Build system prompt
   let systemPrompt: string;
   if (mode === 'demo') {
     systemPrompt = `
 You are the Clockwork Gifts Concierge in demo mode. The user will describe who they're shopping for in free text.
-Return exactly a JSON object with a key "suggestions" whose value is an array of 3 to 5 gift suggestions. 
+Return exactly a JSON object with a key "suggestions" whose value is an array of 3 to 5 gift suggestions.
 Each suggestion must include:
 - title (short name)
 - reason (why it fits)
@@ -118,15 +119,14 @@ Example output (no extra explanation):
 }
 `;
   } else {
-    // full mode: include existing profile context if available
     let profileSummary = '';
-    if (db && body.recipientId && body.userId) {
+    if (db && userId && recipientId) {
       try {
         const snap = await db
           .collection('users')
-          .doc(body.userId)
+          .doc(userId)
           .collection('recipients')
-          .doc(body.recipientId)
+          .doc(recipientId)
           .get();
         if (snap.exists) {
           profileSummary = JSON.stringify(snap.data());
@@ -138,7 +138,7 @@ Example output (no extra explanation):
     systemPrompt = `
 You are the Clockwork Gifts Concierge. Use the recipient profile context to refine understanding: ${profileSummary}.
 The user will provide additional input. Suggest 3-5 gift ideas tailored to their preferences, occasion, and constraints.
-Return a JSON object in the same shape as demo mode, plus any clarifying questions if needed.
+Return a JSON object in the same shape as demo mode.
 `;
   }
 
@@ -148,35 +148,60 @@ Return a JSON object in the same shape as demo mode, plus any clarifying questio
     { role: 'user', content: message },
   ];
 
-  try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages,
-      temperature: 0.7,
-      max_tokens: 700,
-    });
+  // Try models in order of preference
+  const modelCandidates = ['gpt-4-0613', 'gpt-4', 'gpt-3.5-turbo'];
+  let response: any = null;
+  let usedModel = '';
+  let lastError: any = null;
 
-    const assistantMessage = response.choices?.[0]?.message;
-    const rawContent: string = assistantMessage?.content || '';
-
-    // Parse suggestions
-    let suggestions: Suggestion[] = safeParseSuggestions(rawContent);
-
-    // If in demo mode and no valid structured suggestions, optionally supplement via stubbed engine
-    if (mode === 'demo' && suggestions.length === 1 && suggestions[0].giftId === 'fallback-1') {
-      const supplemental = await runGiftEngine(message);
-      suggestions = supplemental;
+  for (const model of modelCandidates) {
+    try {
+      response = await openai.chat.completions.create({
+        model,
+        messages,
+        temperature: 0.7,
+        max_tokens: 700,
+      });
+      usedModel = model;
+      break;
+    } catch (e: any) {
+      lastError = e;
+      const msg = e.toString();
+      if (
+        !msg.toLowerCase().includes('does not exist') &&
+        !msg.toLowerCase().includes('you do not have access')
+      ) {
+        break; // non-model-access error, bail
+      }
+      // otherwise try next model
     }
+  }
 
-    return NextResponse.json({
-      assistant: { content: rawContent },
-      suggestions,
-    });
-  } catch (err: any) {
-    console.error('Chat endpoint error:', err);
+  if (!response) {
+    console.error('All model attempts failed:', lastError);
     return NextResponse.json(
-      { error: err.message || 'Unknown error from OpenAI' },
+      { error: lastError?.message || 'OpenAI error, no model succeeded' },
       { status: 500 }
     );
   }
+
+  const assistantMessage = response.choices?.[0]?.message;
+  const rawContent: string = assistantMessage?.content || '';
+
+  // Parse structured suggestions
+  let suggestions: Suggestion[] = safeParseSuggestions(rawContent);
+
+  // Demo fallback: supplement if only fallback suggestion present
+  if (mode === 'demo' && suggestions.length === 1 && suggestions[0].giftId === 'fallback-1') {
+    const supplemental = await runGiftEngine(message);
+    suggestions = supplemental;
+  }
+
+  return NextResponse.json({
+    assistant: { content: rawContent },
+    suggestions,
+    usedModel,
+  });
 }
+
+export {}; // ensure this file is treated as a module
