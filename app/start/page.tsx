@@ -1,4 +1,4 @@
-cat <<'EOF' > app/start/page.tsx
+// app/start/page.tsx
 'use client';
 
 import React, { useState } from 'react';
@@ -24,4 +24,3 @@ export default function StartPage() {
     </div>
   );
 }
-EOF

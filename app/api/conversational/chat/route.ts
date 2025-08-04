@@ -1,8 +1,8 @@
-cat <<'EOF' > app/api/conversational/chat/route.ts
+// app/api/conversational/chat/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 
 export async function POST(req: NextRequest) {
   const { mode, message, conversationHistory = [] } = await req.json();
@@ -18,13 +18,16 @@ export async function POST(req: NextRequest) {
     { role: 'user', content: message },
   ];
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4',
-    messages,
-    temperature: 0.7,
-    max_tokens: 600,
-  });
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages,
+      temperature: 0.7,
+      max_tokens: 600,
+    });
 
-  return NextResponse.json({ assistant: response.choices[0].message });
+    return NextResponse.json({ assistant: response.choices[0].message });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'OpenAI error' }, { status: 500 });
+  }
 }
-EOF

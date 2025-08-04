@@ -1,4 +1,4 @@
-cat <<'EOF' > app/api/go/route.ts
+// app/api/go/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
@@ -8,4 +8,3 @@ export async function GET(req: NextRequest) {
   url.searchParams.set('tag', affiliateTag);
   return NextResponse.redirect(url.toString());
 }
-EOF

@@ -1,4 +1,4 @@
-cat <<'EOF' > app/layout.tsx
+// app/layout.tsx
 import React from 'react';
 
 export const metadata = {
@@ -15,4 +15,3 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
-EOF

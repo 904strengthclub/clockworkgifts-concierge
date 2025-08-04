@@ -1,4 +1,4 @@
-cat <<'EOF' > app/api/health/route.ts
+// app/api/health/route.ts
 import { NextResponse } from 'next/server';
 
 export async function GET() {
@@ -12,4 +12,3 @@ export async function GET() {
   }
   return NextResponse.json({ ok: true, message: 'Secrets present' });
 }
-EOF
