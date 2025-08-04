@@ -31,7 +31,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
 });
 
-// Stubbed fallback gift engine
+// Fallback gift engine stub
 async function runGiftEngine(description: string): Promise<Suggestion[]> {
   return [
     {
@@ -67,7 +67,7 @@ function safeParseSuggestions(raw: string): Suggestion[] {
       }));
     }
   } catch {
-    // ignore
+    // ignore parse errors
   }
 
   return [
@@ -148,13 +148,14 @@ Return a JSON object in the same shape as demo mode.
     { role: 'user', content: message },
   ];
 
-  // Prefer the cheaper model first
+  // Try preferred (cheaper) model first, with fallback
   const modelCandidates = ['gpt-3.5-turbo', 'gpt-4-0613', 'gpt-4'];
   let response: any = null;
   let usedModel = '';
   let suggestions: Suggestion[] = [];
   let rawContent = '';
   let fallbackDueToQuota = false;
+  let lastError: any = null;
 
   for (const model of modelCandidates) {
     try {
@@ -162,26 +163,22 @@ Return a JSON object in the same shape as demo mode.
         model,
         messages,
         temperature: 0.7,
-        max_tokens: 600, // reduced to conserve tokens/cost
+        max_tokens: 600,
       });
       usedModel = model;
       break;
     } catch (e: any) {
-      const msg = e.toString();
-      // On quota/429, break and fallback to stub
-      if (e.status === 429 || msg.toLowerCase().includes('quota')) {
+      lastError = e;
+      const msg = String(e).toLowerCase();
+      if (e.status === 429 || msg.includes('quota')) {
         fallbackDueToQuota = true;
         break;
       }
-      // If model not available, try next
-      if (
-        msg.toLowerCase().includes('does not exist') ||
-        msg.toLowerCase().includes('you do not have access')
-      ) {
+      if (msg.includes('does not exist') || msg.includes('you do not have access')) {
+        // try next model
         continue;
       }
-      // other error: bail
-      lastError: any = e;
+      // other error: stop trying
       break;
     }
   }
@@ -198,7 +195,7 @@ Return a JSON object in the same shape as demo mode.
 
   if (!response) {
     return NextResponse.json(
-      { error: 'No model succeeded or unexpected error', usedModel },
+      { error: lastError?.message || 'No model succeeded', usedModel },
       { status: 500 }
     );
   }
@@ -206,10 +203,9 @@ Return a JSON object in the same shape as demo mode.
   const assistantMessage = response.choices?.[0]?.message;
   rawContent = assistantMessage?.content || '';
 
-  // Parse structured suggestions
   suggestions = safeParseSuggestions(rawContent);
 
-  // If demo and fallback only, supplement with stubbed engine
+  // Demo fallback: supplement if only fallback
   if (mode === 'demo' && suggestions.length === 1 && suggestions[0].giftId === 'fallback-1') {
     const supplemental = await runGiftEngine(message);
     suggestions = supplemental;
@@ -222,4 +218,4 @@ Return a JSON object in the same shape as demo mode.
   });
 }
 
-export {}; // ensure module context
+export {}; // ensure module scope
