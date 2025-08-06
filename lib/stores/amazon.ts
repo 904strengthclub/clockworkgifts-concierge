@@ -1,14 +1,21 @@
 import { GiftResult } from '../types';
+import curatedProducts from '../data/amazon-curated.json';
 
 /**
- * Search Amazon API for gifts.
- * @param keywords Search keywords from GPT output.
- * @param priceBand Optional price band string.
- * @param category Optional category string.
+ * Returns curated Amazon products using static SiteStripe links.
+ * Replace the placeholder values in amazon-curated.json with real links & images.
+ *
+ * @param keywords Optional keywords from GPT output (unused for MVP)
+ * @param priceBand Optional price band string (unused for MVP)
+ * @param category Optional category string (unused for MVP)
  * @returns Promise<GiftResult[]>
  */
-export async function searchAmazon(keywords: string, priceBand?: string, category?: string): Promise<GiftResult[]> {
-  // TODO: Implement API call for amazon
-  // Return results in the GiftResult format
-  return [];
+export async function searchAmazon(
+  keywords?: string,
+  priceBand?: string,
+  category?: string
+): Promise<GiftResult[]> {
+  // For MVP: return the full curated list.
+  // In the future, filter this list based on keywords/category if desired.
+  return curatedProducts as GiftResult[];
 }

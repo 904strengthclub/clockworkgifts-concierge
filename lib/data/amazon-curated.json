@@ -1,0 +1,202 @@
+[
+  {
+    "store": "Amazon",
+    "title": "Luxury Coffee Gift Basket",
+    "price": 59.99,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Perfect for coffee lovers who enjoy exploring artisanal blends."
+  },
+  {
+    "store": "Amazon",
+    "title": "Bodum French Press",
+    "price": 39.95,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "For brewing rich, flavorful coffee at home."
+  },
+  {
+    "store": "Amazon",
+    "title": "Electric Coffee Grinder",
+    "price": 49.99,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Freshly ground beans for better flavor."
+  },
+  {
+    "store": "Amazon",
+    "title": "Variety Pack of Flavored Syrups",
+    "price": 29.95,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Elevates home lattes and iced coffee."
+  },
+  {
+    "store": "Amazon",
+    "title": "Insulated Stainless Steel Travel Mug",
+    "price": 24.99,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Keeps coffee hot for hours on the go."
+  },
+  {
+    "store": "Amazon",
+    "title": "Aromatherapy Spa Gift Set",
+    "price": 39.95,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Bath salts, essential oils, and candles for relaxation."
+  },
+  {
+    "store": "Amazon",
+    "title": "Weighted Blanket (15 lbs)",
+    "price": 69.99,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Helps with sleep and anxiety relief."
+  },
+  {
+    "store": "Amazon",
+    "title": "Essential Oil Diffuser",
+    "price": 29.99,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Creates a calming home environment."
+  },
+  {
+    "store": "Amazon",
+    "title": "Bamboo Bath Caddy Tray",
+    "price": 34.99,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "For holding books, wine, or candles in the tub."
+  },
+  {
+    "store": "Amazon",
+    "title": "Silk Sleep Mask & Pillowcase Set",
+    "price": 49.99,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Gentle on skin and hair for better rest."
+  },
+  {
+    "store": "Amazon",
+    "title": "Echo Dot (5th Gen) Smart Speaker",
+    "price": 49.99,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Smart speaker for home automation."
+  },
+  {
+    "store": "Amazon",
+    "title": "Tile Mate Bluetooth Tracker",
+    "price": 24.99,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Keeps track of keys, wallets, and bags."
+  },
+  {
+    "store": "Amazon",
+    "title": "Anker Portable Charger",
+    "price": 39.99,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Fast charging for phones and tablets."
+  },
+  {
+    "store": "Amazon",
+    "title": "Ring Light with Phone Holder",
+    "price": 29.99,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Great for video calls or content creation."
+  },
+  {
+    "store": "Amazon",
+    "title": "Wireless Earbuds",
+    "price": 59.99,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Good sound without breaking the bank."
+  },
+  {
+    "store": "Amazon",
+    "title": "Coleman Portable Camping Chair",
+    "price": 34.99,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Lightweight and durable for outdoor activities."
+  },
+  {
+    "store": "Amazon",
+    "title": "Hydro Flask Water Bottle",
+    "price": 39.95,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Keeps drinks hot or cold for hours."
+  },
+  {
+    "store": "Amazon",
+    "title": "LED Headlamp (Rechargeable)",
+    "price": 24.99,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Hands‑free lighting for camping/hiking."
+  },
+  {
+    "store": "Amazon",
+    "title": "ENO Hammock",
+    "price": 69.95,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Compact, portable hammock for adventures."
+  },
+  {
+    "store": "Amazon",
+    "title": "Compact Binoculars",
+    "price": 49.99,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "For birdwatching, sports, or sightseeing."
+  },
+  {
+    "store": "Amazon",
+    "title": "Handmade Ceramic Planter",
+    "price": 24.95,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Stylish home decor for plant lovers."
+  },
+  {
+    "store": "Amazon",
+    "title": "Scented Candle Gift Set",
+    "price": 29.99,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Luxurious fragrances for any room."
+  },
+  {
+    "store": "Amazon",
+    "title": "Decorative Throw Blanket",
+    "price": 39.99,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Adds warmth and style to a sofa or bed."
+  },
+  {
+    "store": "Amazon",
+    "title": "Cheese Board & Knife Set",
+    "price": 49.95,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Perfect for hosting and entertaining."
+  },
+  {
+    "store": "Amazon",
+    "title": "Set of Crystal Wine Glasses",
+    "price": 59.99,
+    "image": "IMAGE_URL_HERE",
+    "link": "ASIN_LINK_HERE",
+    "reasoning": "Elegant addition to any home bar."
+  }
+]
