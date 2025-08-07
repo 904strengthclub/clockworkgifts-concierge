@@ -18,26 +18,31 @@ export default function StartPage() {
       prompt: "What’s the recipient’s name?",
       value: recipientName,
       setValue: setRecipientName,
+      type: 'text',
     },
     {
       prompt: "What’s your relationship to them? (e.g., wife, boyfriend, friend, child)",
       value: relationship,
       setValue: setRelationship,
+      type: 'text',
     },
     {
       prompt: "What kind of occasion is this for? (birthday, anniversary, promotion, etc.)",
       value: occasionType,
       setValue: setOccasionType,
+      type: 'text',
     },
     {
       prompt: "What are their hobbies, interests, or general gift style?",
       value: hobbiesStyle,
       setValue: setHobbiesStyle,
+      type: 'text',
     },
     {
       prompt: "What’s your gift budget?",
       value: budgetRange,
       setValue: setBudgetRange,
+      type: 'number',
     },
   ];
 
@@ -74,7 +79,7 @@ export default function StartPage() {
       <h1>Clockwork Gifts Concierge</h1>
       <p>{current.prompt}</p>
       <input
-        type="text"
+        type={current.type}
         value={current.value}
         onChange={(e) => current.setValue(e.target.value)}
         style={{ padding: 8, fontSize: 16, width: '100%', marginBottom: 16 }}
