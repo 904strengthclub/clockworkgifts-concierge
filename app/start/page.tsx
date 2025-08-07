@@ -35,7 +35,7 @@ export default function StartPage() {
       setValue: setHobbiesStyle,
     },
     {
-      prompt: "What’s your gift budget? (under $50, $50–$100, $100–$500, $500+)",
+      prompt: "What’s your gift budget?",
       value: budgetRange,
       setValue: setBudgetRange,
     },
@@ -50,24 +50,20 @@ export default function StartPage() {
       budget_range: budgetRange,
     };
 
-    try {
-      const res = await fetch('/api/generate-suggestions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ surveySummary }),
-      });
+    const res = await fetch('/api/generate-suggestions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ surveySummary })
+    });
 
-      const suggestions = await res.json();
+    const suggestions = await res.json();
+    console.log('Received suggestions from API:', suggestions); // ✅ DEBUG LINE
 
-      if (Array.isArray(suggestions)) {
-        localStorage.setItem('clockwork_suggestions', JSON.stringify(suggestions));
-        router.push('/results');
-      } else {
-        alert('No suggestions returned. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error generating suggestions:', error);
-      alert('Something went wrong. Please try again.');
+    if (suggestions && Array.isArray(suggestions)) {
+      localStorage.setItem('clockwork_suggestions', JSON.stringify(suggestions));
+      router.push('/results');
+    } else {
+      alert('No suggestions returned. Please try again.');
     }
   };
 
