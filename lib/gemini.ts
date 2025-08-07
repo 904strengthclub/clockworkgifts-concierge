@@ -18,16 +18,22 @@ export async function generateGiftIdeas(history: string[]) {
     const response = result.response;
     const text = response.text();
 
-    // 🧹 Remove markdown code block formatting: ```json ... ```
-    const cleaned = text.replace(/^```json\s*|\s*```$/g, '').trim();
+    // 🧼 Clean: strip triple-backtick formatting if it exists
+    const cleanedText = text
+      .replace(/^```json/, '')
+      .replace(/^```/, '')
+      .replace(/```$/, '')
+      .trim();
 
-    try {
-      const parsed = JSON.parse(cleaned);
-      return parsed;
-    } catch (err) {
-      console.error('❌ Failed to parse Gemini response as JSON:', cleaned);
-      throw err;
+    // 🧪 Attempt to parse JSON output
+    const parsed = JSON.parse(cleanedText);
+
+    if (!Array.isArray(parsed)) {
+      console.error('❌ Gemini response is not an array:', parsed);
+      throw new Error('Gemini output was not a valid JSON array.');
     }
+
+    return parsed;
   } catch (error) {
     console.error('Error generating gift ideas:', error);
     throw error;
