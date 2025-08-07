@@ -69,8 +69,16 @@ ${JSON.stringify(surveySummary, null, 2)}
     `;
 
     const rawSuggestions = await generateGiftIdeas(prompt);
-    const suggestionsWithAffiliates = await appendAffiliateLinks(rawSuggestions);
+    console.log('🎁 Raw Gemini Suggestions:', JSON.stringify(rawSuggestions, null, 2));
 
+    if (!Array.isArray(rawSuggestions) || rawSuggestions.length === 0) {
+      return NextResponse.json(
+        { error: 'No suggestions returned from Gemini.' },
+        { status: 502 }
+      );
+    }
+
+    const suggestionsWithAffiliates = await appendAffiliateLinks(rawSuggestions);
     return NextResponse.json(suggestionsWithAffiliates);
   } catch (err) {
     console.error('API Error:', err);
