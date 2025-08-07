@@ -16,7 +16,18 @@ export async function generateGiftIdeas(history: string[]) {
 
     const result = await model.generateContent(history);
     const response = result.response;
-    return response.text();
+    const text = response.text();
+
+    // 🧹 Remove markdown code block formatting: ```json ... ```
+    const cleaned = text.replace(/^```json\s*|\s*```$/g, '').trim();
+
+    try {
+      const parsed = JSON.parse(cleaned);
+      return parsed;
+    } catch (err) {
+      console.error('❌ Failed to parse Gemini response as JSON:', cleaned);
+      throw err;
+    }
   } catch (error) {
     console.error('Error generating gift ideas:', error);
     throw error;
