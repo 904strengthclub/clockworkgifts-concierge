@@ -1,129 +1,100 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-export default function StartDemo() {
+export default function StartPage() {
+  const router = useRouter();
+
   const [step, setStep] = useState(0);
-  const [responses, setResponses] = useState({
-    recipient_name: '',
-    relationship: '',
-    occasion_type: '',
-    hobbies_style: '',
-    budget_range: '',
-  });
-  const [currentInput, setCurrentInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<any[]>([]);
+  const [recipientName, setRecipientName] = useState('');
+  const [relationship, setRelationship] = useState('');
+  const [occasionType, setOccasionType] = useState('');
+  const [hobbiesStyle, setHobbiesStyle] = useState('');
+  const [budgetRange, setBudgetRange] = useState('');
 
   const questions = [
-    { key: 'recipient_name', label: 'What’s the recipient’s name?' },
-    { key: 'relationship', label: 'What’s your relationship to them?' },
-    { key: 'occasion_type', label: 'What kind of occasion is this for?' },
-    { key: 'hobbies_style', label: 'What are their hobbies, interests, or gift style?' },
     {
-      key: 'budget_range',
-      label: 'What’s your gift budget?',
-      options: ['under $50', '$50–$100', '$100–$500', '$500+'],
+      prompt: "What’s the recipient’s name?",
+      value: recipientName,
+      setValue: setRecipientName,
+    },
+    {
+      prompt: "What’s your relationship to them? (e.g., wife, boyfriend, friend, child)",
+      value: relationship,
+      setValue: setRelationship,
+    },
+    {
+      prompt: "What kind of occasion is this for? (birthday, anniversary, promotion, etc.)",
+      value: occasionType,
+      setValue: setOccasionType,
+    },
+    {
+      prompt: "What are their hobbies, interests, or general gift style?",
+      value: hobbiesStyle,
+      setValue: setHobbiesStyle,
+    },
+    {
+      prompt: "What’s your gift budget? (under $50, $50–$100, $100–$500, $500+)",
+      value: budgetRange,
+      setValue: setBudgetRange,
     },
   ];
 
-  const handleSubmitInput = () => {
-    const key = questions[step].key;
-    setResponses(prev => ({ ...prev, [key]: currentInput }));
-    setCurrentInput('');
-    setStep(prev => prev + 1);
+  const handleSubmit = async () => {
+    const surveySummary = {
+      recipient_name: recipientName,
+      relationship,
+      occasion_type: occasionType,
+      hobbies_style: hobbiesStyle,
+      budget_range: budgetRange,
+    };
+
+    try {
+      const res = await fetch('/api/generate-suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ surveySummary }),
+      });
+
+      const suggestions = await res.json();
+
+      if (Array.isArray(suggestions)) {
+        localStorage.setItem('clockwork_suggestions', JSON.stringify(suggestions));
+        router.push('/results');
+      } else {
+        alert('No suggestions returned. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error generating suggestions:', error);
+      alert('Something went wrong. Please try again.');
+    }
   };
 
-  const handleOptionClick = (option: string) => {
-    const key = questions[step].key;
-    setResponses(prev => ({ ...prev, [key]: option }));
-    setStep(prev => prev + 1);
-  };
-
-  const handleGenerate = async () => {
-    setLoading(true);
-    const res = await fetch('/api/generate-suggestions', {
-      method: 'POST',
-      body: JSON.stringify({ surveySummary: responses }),
-    });
-    const data = await res.json();
-    setResults(data);
-    setLoading(false);
-  };
+  const current = questions[step];
 
   return (
-    <main style={{ padding: 20, fontFamily: 'system-ui, sans-serif' }}>
-      <h1>Clockwork Gift Concierge</h1>
-
-      {step < questions.length && (
-        <>
-          <p>{questions[step].label}</p>
-          {questions[step].options ? (
-            questions[step].options.map(option => (
-              <button
-                key={option}
-                style={{ display: 'block', margin: '10px 0' }}
-                onClick={() => handleOptionClick(option)}
-              >
-                {option}
-              </button>
-            ))
-          ) : (
-            <>
-              <input
-                type="text"
-                value={currentInput}
-                onChange={e => setCurrentInput(e.target.value)}
-                placeholder="Type your answer..."
-                style={{ padding: 8, width: '100%', maxWidth: 300 }}
-              />
-              <br />
-              <button onClick={handleSubmitInput} style={{ marginTop: 10 }}>
-                Next
-              </button>
-            </>
-          )}
-        </>
-      )}
-
-      {step === questions.length && !loading && results.length === 0 && (
-        <button onClick={handleGenerate} style={{ marginTop: 20 }}>
-          Generate Gift Ideas
-        </button>
-      )}
-
-      {loading && <p>Generating gift ideas...</p>}
-
-      {results.length > 0 && (
-        <>
-          <h2>Gift Suggestions</h2>
-          <ul>
-            {results.map((gift, idx) => (
-              <li key={idx} style={{ marginBottom: 20 }}>
-                <strong>{gift.name}</strong> — {gift.estimated_price}
-                <br />
-                <em>{gift.store_or_brand}</em>
-                <p>{gift.description}</p>
-                {gift.image_url && (
-                  <img
-                    src={gift.image_url}
-                    alt={gift.name}
-                    style={{ maxWidth: 200, borderRadius: 8 }}
-                  />
-                )}
-                <br />
-                <a
-                  href={`/api/go?giftId=${encodeURIComponent(gift.name)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  View Gift
-                </a>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+    <main style={{ padding: 40, fontFamily: 'system-ui, sans-serif' }}>
+      <h1>Clockwork Gifts Concierge</h1>
+      <p>{current.prompt}</p>
+      <input
+        type="text"
+        value={current.value}
+        onChange={(e) => current.setValue(e.target.value)}
+        style={{ padding: 8, fontSize: 16, width: '100%', marginBottom: 16 }}
+      />
+      <button
+        onClick={() => {
+          if (step < questions.length - 1) {
+            setStep(step + 1);
+          } else {
+            handleSubmit();
+          }
+        }}
+        style={{ padding: '10px 20px', fontSize: 16 }}
+      >
+        {step < questions.length - 1 ? 'Next' : 'Submit'}
+      </button>
     </main>
   );
 }
