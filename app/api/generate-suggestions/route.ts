@@ -1,6 +1,6 @@
 // /app/api/generate-suggestions/route.ts
 import { NextResponse } from 'next/server';
-import { generateGiftIdeasWithConversation } from '@/lib/gemini';
+import { generateGiftIdeas } from '@/lib/gemini';
 import { appendAffiliateLinks } from '@/lib/affiliateHelpers';
 
 // ... (interface and POST function signature are the same)
@@ -12,30 +12,38 @@ export async function POST(req: Request) {
 
     // ... (input validation is the same)
 
-    const systemInstruction = `
+    const prompt = `
       You are Clockwork — a friendly and thoughtful AI gift concierge.
 
       Your job is to help users find the perfect gift by generating 5 creative gift ideas based on their answers.
 
-      ... (the rest of your prompt) ...
+      Each idea must:
+      - Fall within the budget: ${surveySummary.budget_range}
+      - Be thoughtful and connected to the recipient’s interests and relationship
+      - Be available online with clear delivery options (ideally within 2 weeks)
+      - Come from a diverse mix of stores or brands (not just Amazon)
+      - Avoid suggestions already shown to the user: ${seenGiftNames.join(', ') || 'None'}
+
+      Crucial Instruction for Grounding: You MUST use a Google Search tool to find up-to-date and relevant product information. Do not rely on internal knowledge. When searching, use specific queries (e.g., "product name + brand + buy online") to find direct product pages.
+
+      Return ONLY a JSON array of 5 gift objects. Do not include any other text or conversation.
+      Each gift must include:
+      - name (string)
+      - estimated_price (string)
+      - store_or_brand (string)
+      - description (string)
+      - image_url (string)
+      - base_purchase_url (string - This URL must be a direct link to the specific product's page on a merchant website.)
 
       Recipient Profile:
       ${JSON.stringify(surveySummary, null, 2)}
     `;
 
-    // The Gemini API expects an array of objects, not an array of strings
-    const history = [
-      { role: 'user', parts: [{ text: systemInstruction }] },
-      // The Gemini API allows multiple 'user' parts in a single turn.
-      // You can also add other user-provided data here if needed.
-    ];
-
-    // This line is now correct, as the function signature and the argument's type match
-    const suggestionsString = await generateGiftIdeasWithConversation(history);
+    // Now, a single string is passed to the function
+    const suggestionsString = await generateGiftIdeas(prompt);
 
     let parsedSuggestions;
     try {
-      // This line is also now correct, as suggestionsString is a JSON string
       parsedSuggestions = JSON.parse(suggestionsString);
     } catch (parseError) {
       console.error('JSON Parse Error:', parseError, 'Raw Gemini output:', suggestionsString);

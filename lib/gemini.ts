@@ -1,5 +1,5 @@
 // lib/gemini.ts
-import { GoogleGenerativeAI, Content, GenerativeModel, Tool } from '@google/generative-ai';
+import { GoogleGenerativeAI, Tool, Part, Schema, SchemaType } from '@google/generative-ai';
 
 const apiKey = process.env.GEMINI_API_KEY;
 
@@ -7,20 +7,46 @@ if (!apiKey) {
   throw new Error('Missing GEMINI_API_KEY in environment variables');
 }
 
-const genAI = new GoogleGenerativeAI(apiKey);
+const ai = new GoogleGenerativeAI(apiKey);
 
-export async function generateGiftIdeasWithConversation(history: Content[]) {
+// Define the schema for the JSON output we want from the model.
+// Use SchemaType for the 'type' property
+const giftIdeaSchema: Schema = {
+  type: SchemaType.ARRAY,
+  items: {
+    type: SchemaType.OBJECT,
+    properties: {
+      name: { type: SchemaType.STRING },
+      estimated_price: { type: SchemaType.STRING },
+      store_or_brand: { type: SchemaType.STRING },
+      description: { type: SchemaType.STRING },
+      image_url: { type: SchemaType.STRING },
+      base_purchase_url: { type: SchemaType.STRING },
+    },
+    required: ['name', 'estimated_price', 'store_or_brand', 'description', 'image_url', 'base_purchase_url'],
+  },
+};
+
+// Create the GenerativeModel instance
+const model = ai.getGenerativeModel({
+  model: 'gemini-2.5-flash',
+  tools: [
+    {
+      googleSearch: {},
+    } as Tool,
+  ],
+  generationConfig: {
+    responseMimeType: 'application/json',
+    responseSchema: giftIdeaSchema,
+  },
+});
+
+export async function generateGiftIdeas(prompt: string) {
   try {
-    const model: GenerativeModel = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
-      // We use 'as unknown as Tool[]' to bypass the type checking.
-      // This is necessary because the library's Tool type doesn't yet
-      // recognize the 'googleSearch' property, but the functionality
-      // still works.
-      tools: [{ googleSearch: {} }] as unknown as Tool[], // <--- THIS IS THE FIX
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt } as Part] }],
     });
 
-    const result = await model.generateContent({ contents: history });
     const response = result.response;
     const text = response.text();
 
