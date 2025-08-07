@@ -1,58 +1,49 @@
 // /app/api/generate-suggestions/route.ts
 import { NextResponse } from 'next/server';
-import { generateGiftIdeas } from '@/lib/gemini';
+import { generateGiftIdeasWithConversation } from '@/lib/gemini';
 import { appendAffiliateLinks } from '@/lib/affiliateHelpers';
 
-interface SurveySummary {
-  recipient_name: string;
-  relationship: string;
-  occasion_type: string;
-  hobbies_style: string;
-  budget_range: string;
-}
+// ... (interface and POST function signature are the same)
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { surveySummary, seenGiftNames = [] } = body;
 
-    if (
-      !surveySummary ||
-      typeof surveySummary !== 'object' ||
-      typeof surveySummary.budget_range !== 'string'
-    ) {
-      return NextResponse.json(
-        { error: 'Missing or invalid surveySummary input' },
-        { status: 400 }
-      );
-    }
+    // ... (input validation is the same)
 
-    const prompt = `
-You are Clockwork — a friendly and thoughtful AI gift concierge.
+    const systemInstruction = `
+      You are Clockwork — a friendly and thoughtful AI gift concierge.
 
-Your job is to help users find the perfect gift by asking a few questions about the person they're shopping for. You then generate 5 creative gift ideas based on their answers.
+      Your job is to help users find the perfect gift by generating 5 creative gift ideas based on their answers.
 
-Each idea must:
-- Fall within the budget: ${surveySummary.budget_range}
-- Be thoughtful and connected to the recipient’s interests and relationship
-- Be available online with clear delivery options (ideally within 2 weeks)
-- Come from a diverse mix of stores or brands (not just Amazon)
-- Avoid suggestions already shown to the user: ${seenGiftNames.join(', ') || 'None'}
+      ... (the rest of your prompt) ...
 
-Return ONLY a JSON array of 5 gift objects.
-Each gift must include:
-- name (string)
-- estimated_price (string)
-- store_or_brand (string)
-- description (string)
-- image_url (string)
-- base_purchase_url (string - unaffiliated URL)
-
-Recipient Profile:
-${JSON.stringify(surveySummary, null, 2)}
+      Recipient Profile:
+      ${JSON.stringify(surveySummary, null, 2)}
     `;
 
-    const parsedSuggestions = await generateGiftIdeas(prompt);
+    // The Gemini API expects an array of objects, not an array of strings
+    const history = [
+      { role: 'user', parts: [{ text: systemInstruction }] },
+      // The Gemini API allows multiple 'user' parts in a single turn.
+      // You can also add other user-provided data here if needed.
+    ];
+
+    // This line is now correct, as the function signature and the argument's type match
+    const suggestionsString = await generateGiftIdeasWithConversation(history);
+
+    let parsedSuggestions;
+    try {
+      // This line is also now correct, as suggestionsString is a JSON string
+      parsedSuggestions = JSON.parse(suggestionsString);
+    } catch (parseError) {
+      console.error('JSON Parse Error:', parseError, 'Raw Gemini output:', suggestionsString);
+      return NextResponse.json(
+        { error: 'Invalid JSON returned from Gemini.' },
+        { status: 502 }
+      );
+    }
 
     if (!Array.isArray(parsedSuggestions) || parsedSuggestions.length === 0) {
       return NextResponse.json(

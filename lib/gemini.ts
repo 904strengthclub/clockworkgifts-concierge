@@ -1,5 +1,5 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { Content } from '@google/generative-ai';
+// lib/gemini.ts
+import { GoogleGenerativeAI, Content, GenerativeModel, Tool } from '@google/generative-ai';
 
 const apiKey = process.env.GEMINI_API_KEY;
 
@@ -9,43 +9,24 @@ if (!apiKey) {
 
 const genAI = new GoogleGenerativeAI(apiKey);
 
-// Accept a single prompt string
-export async function generateGiftIdeas(prompt: string): Promise<any[]> {
+export async function generateGiftIdeasWithConversation(history: Content[]) {
   try {
-    const model = genAI.getGenerativeModel({
+    const model: GenerativeModel = genAI.getGenerativeModel({
       model: 'gemini-2.0-flash',
+      // We use 'as unknown as Tool[]' to bypass the type checking.
+      // This is necessary because the library's Tool type doesn't yet
+      // recognize the 'googleSearch' property, but the functionality
+      // still works.
+      tools: [{ googleSearch: {} }] as unknown as Tool[], // <--- THIS IS THE FIX
     });
 
-    // Format the prompt as a conversation with a single user message
-    const conversation: Content[] = [
-      {
-        role: 'user',
-        parts: [{ text: prompt }],
-      },
-    ];
+    const result = await model.generateContent({ contents: history });
+    const response = result.response;
+    const text = response.text();
 
-    const result = await model.generateContent({
-      contents: conversation,
-    });
-
-    const text = result.response.text();
-
-    // 🧼 Clean up markdown formatting if any
-    const cleanedText = text
-      .replace(/^```json/, '')
-      .replace(/^```/, '')
-      .replace(/```$/, '')
-      .trim();
-
-    const parsed = JSON.parse(cleanedText);
-
-    if (!Array.isArray(parsed)) {
-      throw new Error('Gemini output was not a valid array.');
-    }
-
-    return parsed;
+    return text;
   } catch (error) {
-    console.error('Error in generateGiftIdeas:', error);
+    console.error('Error generating gift ideas:', error);
     throw error;
   }
 }
