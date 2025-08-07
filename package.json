@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "firebase-admin": "latest",
     "next": "latest",
     "node-fetch": "^3.3.2",
