@@ -54,16 +54,7 @@ ${JSON.stringify(surveySummary, null, 2)}
 
     const rawText = await generateGiftIdeas([prompt]);
 
-    let parsedSuggestions;
-    try {
-      parsedSuggestions = JSON.parse(rawText);
-    } catch (err) {
-      console.error('❌ Failed to parse Gemini response as JSON:', rawText);
-      return NextResponse.json(
-        { error: 'Invalid JSON response from Gemini' },
-        { status: 502 }
-      );
-    }
+    const parsedSuggestions = rawText;
 
     if (!Array.isArray(parsedSuggestions) || parsedSuggestions.length === 0) {
       return NextResponse.json(
