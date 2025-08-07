@@ -52,9 +52,7 @@ Recipient Profile:
 ${JSON.stringify(surveySummary, null, 2)}
     `;
 
-    const rawText = await generateGiftIdeas([prompt]);
-
-    const parsedSuggestions = rawText;
+    const parsedSuggestions = await generateGiftIdeas(prompt);
 
     if (!Array.isArray(parsedSuggestions) || parsedSuggestions.length === 0) {
       return NextResponse.json(

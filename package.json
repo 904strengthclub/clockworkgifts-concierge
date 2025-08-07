@@ -10,6 +10,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "firebase-admin": "latest",
+    "json5": "^2.2.3",
     "next": "latest",
     "node-fetch": "^3.3.2",
     "openai": "latest",

@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import type { Content } from '@google/generative-ai';
 
 const apiKey = process.env.GEMINI_API_KEY;
 
@@ -8,34 +9,43 @@ if (!apiKey) {
 
 const genAI = new GoogleGenerativeAI(apiKey);
 
-export async function generateGiftIdeas(history: string[]) {
+// Accept a single prompt string
+export async function generateGiftIdeas(prompt: string): Promise<any[]> {
   try {
     const model = genAI.getGenerativeModel({
       model: 'gemini-2.0-flash',
     });
 
-    const result = await model.generateContent(history);
-    const response = result.response;
-    const text = response.text();
+    // Format the prompt as a conversation with a single user message
+    const conversation: Content[] = [
+      {
+        role: 'user',
+        parts: [{ text: prompt }],
+      },
+    ];
 
-    // 🧼 Clean: strip triple-backtick formatting if it exists
+    const result = await model.generateContent({
+      contents: conversation,
+    });
+
+    const text = result.response.text();
+
+    // 🧼 Clean up markdown formatting if any
     const cleanedText = text
       .replace(/^```json/, '')
       .replace(/^```/, '')
       .replace(/```$/, '')
       .trim();
 
-    // 🧪 Attempt to parse JSON output
     const parsed = JSON.parse(cleanedText);
 
     if (!Array.isArray(parsed)) {
-      console.error('❌ Gemini response is not an array:', parsed);
-      throw new Error('Gemini output was not a valid JSON array.');
+      throw new Error('Gemini output was not a valid array.');
     }
 
     return parsed;
   } catch (error) {
-    console.error('Error generating gift ideas:', error);
+    console.error('Error in generateGiftIdeas:', error);
     throw error;
   }
 }
