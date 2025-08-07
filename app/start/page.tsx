@@ -1,4 +1,3 @@
-// /app/start/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -12,6 +11,7 @@ export default function StartDemo() {
     hobbies_style: '',
     budget_range: '',
   });
+  const [currentInput, setCurrentInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any[]>([]);
 
@@ -27,9 +27,16 @@ export default function StartDemo() {
     },
   ];
 
-  const handleInput = (value: string) => {
+  const handleSubmitInput = () => {
     const key = questions[step].key;
-    setResponses(prev => ({ ...prev, [key]: value }));
+    setResponses(prev => ({ ...prev, [key]: currentInput }));
+    setCurrentInput('');
+    setStep(prev => prev + 1);
+  };
+
+  const handleOptionClick = (option: string) => {
+    const key = questions[step].key;
+    setResponses(prev => ({ ...prev, [key]: option }));
     setStep(prev => prev + 1);
   };
 
@@ -56,19 +63,25 @@ export default function StartDemo() {
               <button
                 key={option}
                 style={{ display: 'block', margin: '10px 0' }}
-                onClick={() => handleInput(option)}
+                onClick={() => handleOptionClick(option)}
               >
                 {option}
               </button>
             ))
           ) : (
-            <input
-              type="text"
-              placeholder="Type your answer..."
-              value={(responses as any)[questions[step].key]}
-              onChange={e => handleInput(e.target.value)}
-              style={{ marginTop: 10, padding: 8 }}
-            />
+            <>
+              <input
+                type="text"
+                value={currentInput}
+                onChange={e => setCurrentInput(e.target.value)}
+                placeholder="Type your answer..."
+                style={{ padding: 8, width: '100%', maxWidth: 300 }}
+              />
+              <br />
+              <button onClick={handleSubmitInput} style={{ marginTop: 10 }}>
+                Next
+              </button>
+            </>
           )}
         </>
       )}
@@ -91,9 +104,19 @@ export default function StartDemo() {
                 <br />
                 <em>{gift.store_or_brand}</em>
                 <p>{gift.description}</p>
-                {gift.image_url && <img src={gift.image_url} alt="" style={{ maxWidth: 200 }} />}
+                {gift.image_url && (
+                  <img
+                    src={gift.image_url}
+                    alt={gift.name}
+                    style={{ maxWidth: 200, borderRadius: 8 }}
+                  />
+                )}
                 <br />
-                <a href={`/api/go?giftId=${encodeURIComponent(gift.name)}`} target="_blank">
+                <a
+                  href={`/api/go?giftId=${encodeURIComponent(gift.name)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   View Gift
                 </a>
               </li>
