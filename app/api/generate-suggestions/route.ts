@@ -32,28 +32,12 @@ You are Clockwork — a friendly and thoughtful AI gift concierge.
 
 Your job is to help users find the perfect gift by asking a few questions about the person they're shopping for. You then generate 5 creative gift ideas based on their answers.
 
-Start by saying:
-"Hi! I’m Clockwork — your personal gift concierge. I’ll ask you a few quick questions about the person you’re shopping for. At the end, I’ll find you 5 great gift ideas that fit your budget. Ready?"
-
-Ask the following questions one at a time, saving each response in memory:
-
-1. What’s the recipient’s name?
-2. What’s your relationship to them? (e.g., wife, boyfriend, friend, child)
-3. What kind of occasion is this for? (birthday, anniversary, promotion, etc.)
-4. What are their hobbies, interests, or general gift style? (e.g., practical, aesthetic, unique, sentimental)
-5. What’s your gift budget? (under $50, $50–$100, $100–$500, $500+)
-
-After collecting responses, confirm by saying:
-"Great! I have all the information I need. Generating 5 custom gift ideas for [recipient_name] now..."
-
 Each idea must:
 - Fall within the budget: ${surveySummary.budget_range}
 - Be thoughtful and connected to the recipient’s interests and relationship
 - Be available online with clear delivery options (ideally within 2 weeks)
 - Come from a diverse mix of stores or brands (not just Amazon)
 - Avoid suggestions already shown to the user: ${seenGiftNames.join(', ') || 'None'}
-
-Use a Google Search grounding tool to find the most up-to-date product information.
 
 Return ONLY a JSON array of 5 gift objects.
 Each gift must include:
@@ -68,17 +52,27 @@ Recipient Profile:
 ${JSON.stringify(surveySummary, null, 2)}
     `;
 
-    const rawSuggestions = await generateGiftIdeas(prompt);
-    console.log('🎁 Raw Gemini Suggestions:', JSON.stringify(rawSuggestions, null, 2));
+    const rawText = await generateGiftIdeas([prompt]);
 
-    if (!Array.isArray(rawSuggestions) || rawSuggestions.length === 0) {
+    let parsedSuggestions;
+    try {
+      parsedSuggestions = JSON.parse(rawText);
+    } catch (err) {
+      console.error('❌ Failed to parse Gemini response as JSON:', rawText);
+      return NextResponse.json(
+        { error: 'Invalid JSON response from Gemini' },
+        { status: 502 }
+      );
+    }
+
+    if (!Array.isArray(parsedSuggestions) || parsedSuggestions.length === 0) {
       return NextResponse.json(
         { error: 'No suggestions returned from Gemini.' },
         { status: 502 }
       );
     }
 
-    const suggestionsWithAffiliates = await appendAffiliateLinks(rawSuggestions);
+    const suggestionsWithAffiliates = await appendAffiliateLinks(parsedSuggestions);
     return NextResponse.json(suggestionsWithAffiliates);
   } catch (err) {
     console.error('API Error:', err);
