@@ -1,5 +1,3 @@
-// /lib/affiliateHelpers.ts
-
 import { GiftIdea } from './gemini';
 
 const platformSearchMap: Record<string, (query: string) => string> = {
@@ -13,15 +11,15 @@ const platformSearchMap: Record<string, (query: string) => string> = {
 
 export async function appendAffiliateLinks(gifts: GiftIdea[]): Promise<GiftIdea[]> {
   return gifts.map((gift) => {
-    const platform = gift.suggested_platform.toLowerCase().trim();
-    const query = gift.search_query || `${gift.name} ${gift.store_or_brand}`;
+    const platform = (gift.suggested_platform || 'google').toLowerCase().trim();
+    const query = gift.search_query?.trim() || `${gift.name} ${gift.store_or_brand}`.trim();
 
-    const generator = platformSearchMap[platform] || platformSearchMap['google'];
-    const searchUrl = generator(query);
+    const getUrl = platformSearchMap[platform] || platformSearchMap['google'];
+    const directUrl = getUrl(query || 'gift idea');
 
     return {
       ...gift,
-      direct_purchase_url: searchUrl,
+      direct_purchase_url: directUrl,
     };
   });
 }
