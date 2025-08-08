@@ -1,32 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { platformSearchMap } from '@/lib/platformSearchMap';
 
 export async function GET(req: NextRequest) {
-  const searchParams = req.nextUrl.searchParams;
+  const { searchParams } = req.nextUrl;
 
-  const giftId = searchParams.get('giftId') || 'UnknownGift';
-  const baseUrl = searchParams.get('url'); // Optional, may be undefined
-  const platform = searchParams.get('platform'); // e.g., "uncommongoods.com"
-  const query = searchParams.get('query'); // e.g., "personalized cheese board"
+  const giftId = searchParams.get('giftId') || 'Gift';
+  const rawUrl = searchParams.get('url');
+  const platform = searchParams.get('platform');
+  const query = searchParams.get('query');
 
-  // Determine the final destination URL
-  let finalUrl: string | null = null;
+  let redirectUrl: string | null = null;
 
-  if (baseUrl && baseUrl !== 'undefined' && baseUrl.startsWith('http')) {
-    finalUrl = baseUrl;
-  } else if (platform && query) {
-    const encodedQuery = encodeURIComponent(`site:${platform} ${query}`);
-    finalUrl = `https://www.google.com/search?q=${encodedQuery}`;
+  // First, check if a valid direct URL was provided
+  if (rawUrl && rawUrl !== 'undefined' && /^https?:\/\//.test(rawUrl)) {
+    redirectUrl = rawUrl;
+  }
+  // If not, try building one from platform + query
+  else if (platform && query && platformSearchMap[platform]) {
+    redirectUrl = platformSearchMap[platform](query);
   }
 
-  if (!finalUrl) {
-    return NextResponse.json(
-      { error: 'Missing or invalid URL and fallback search parameters.' },
-      { status: 400 }
-    );
+  // If we still don't have a valid URL, error out
+  if (!redirectUrl) {
+    return new NextResponse(`❌ Invalid redirect URL for gift: ${giftId}`, { status: 400 });
   }
 
-  // Optional: log or track outbound redirect
-  console.log(`[Redirecting] Gift ID: ${giftId} → ${finalUrl}`);
-
-  return NextResponse.redirect(finalUrl, 302);
+  console.log(`[Redirecting] ${giftId} → ${redirectUrl}`);
+  return NextResponse.redirect(redirectUrl);
 }
