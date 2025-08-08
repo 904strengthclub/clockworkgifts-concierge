@@ -1,42 +1,32 @@
-// /app/api/go/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
-const SUPPORTED_DOMAINS: Record<string, (url: URL) => string> = {
-  'amazon.com': (url) => {
-    const tag = process.env.AMAZON_ASSOCIATE_ID || 'clockworkgift-20';
-    url.searchParams.set('tag', tag);
-    return url.toString();
-  },
-  'williams-sonoma.com': (url) => {
-    url.searchParams.set('cm_mmc', 'affiliate--clockworkgift-20');
-    return url.toString();
-  },
-  'uncommongoods.com': (url) => {
-    url.searchParams.set('utm_source', 'affiliate');
-    url.searchParams.set('utm_medium', 'clockworkgift-20');
-    return url.toString();
-  },
-};
-
 export async function GET(req: NextRequest) {
-  const rawUrl = req.nextUrl.searchParams.get('url');
+  const searchParams = req.nextUrl.searchParams;
 
-  if (!rawUrl) {
-    return NextResponse.json({ error: 'Missing "url" parameter' }, { status: 400 });
+  const giftId = searchParams.get('giftId') || 'UnknownGift';
+  const baseUrl = searchParams.get('url'); // Optional, may be undefined
+  const platform = searchParams.get('platform'); // e.g., "uncommongoods.com"
+  const query = searchParams.get('query'); // e.g., "personalized cheese board"
+
+  // Determine the final destination URL
+  let finalUrl: string | null = null;
+
+  if (baseUrl && baseUrl !== 'undefined' && baseUrl.startsWith('http')) {
+    finalUrl = baseUrl;
+  } else if (platform && query) {
+    const encodedQuery = encodeURIComponent(`site:${platform} ${query}`);
+    finalUrl = `https://www.google.com/search?q=${encodedQuery}`;
   }
 
-  try {
-    const url = new URL(rawUrl);
-    const domain = url.hostname.replace('www.', '');
-
-    const handler = Object.entries(SUPPORTED_DOMAINS).find(([supportedDomain]) =>
-      domain.endsWith(supportedDomain)
+  if (!finalUrl) {
+    return NextResponse.json(
+      { error: 'Missing or invalid URL and fallback search parameters.' },
+      { status: 400 }
     );
-
-    const affiliateUrl = handler ? handler[1](url) : url.toString();
-    return NextResponse.redirect(affiliateUrl);
-  } catch (err) {
-    console.error('❌ Invalid redirect URL:', rawUrl, err);
-    return NextResponse.json({ error: 'Invalid URL provided' }, { status: 400 });
   }
+
+  // Optional: log or track outbound redirect
+  console.log(`[Redirecting] Gift ID: ${giftId} → ${finalUrl}`);
+
+  return NextResponse.redirect(finalUrl, 302);
 }
