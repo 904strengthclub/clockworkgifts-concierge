@@ -1,4 +1,5 @@
-// lib/gemini.ts
+// /lib/gemini.ts
+
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const apiKey = process.env.GEMINI_API_KEY;
@@ -12,7 +13,8 @@ export interface GiftIdea {
   store_or_brand: string;
   description: string;
   image_url: string;
-  base_purchase_url: string;
+  suggested_platform: string;
+  search_query: string;
 }
 
 const model = ai.getGenerativeModel({
@@ -20,8 +22,8 @@ const model = ai.getGenerativeModel({
 });
 
 /**
- * Generates a list of gift ideas using Gemini's raw prompt output.
- * Expects the model to return a JSON array of gift idea objects.
+ * Generates a list of gift ideas using Gemini, returning search-based metadata.
+ * Expects the model to return a JSON array of gift ideas with suggested platform + query.
  */
 export async function generateGiftIdeas(prompt: string): Promise<GiftIdea[]> {
   try {
@@ -31,8 +33,8 @@ export async function generateGiftIdeas(prompt: string): Promise<GiftIdea[]> {
 
     const text = result.response.text();
 
-    // Attempt to extract JSON array from the response
-    const match = text.match(/\[\s*{[\s\S]*}\s*\]/); // Greedy match for JSON array
+    // Extract JSON array of gift ideas
+    const match = text.match(/\[\s*{[\s\S]*}\s*\]/);
     if (!match) {
       console.warn('No JSON array found in Gemini response:', text);
       return [];

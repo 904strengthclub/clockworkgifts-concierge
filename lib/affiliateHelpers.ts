@@ -1,48 +1,27 @@
 // /lib/affiliateHelpers.ts
 
-interface GiftSuggestion {
-  name: string;
-  estimated_price: string;
-  store_or_brand: string;
-  description: string;
-  image_url: string;
-  base_purchase_url: string;
-  direct_purchase_url?: string;
-}
+import { GiftIdea } from './gemini';
 
-const affiliateLinkTemplates: Record<string, (url: string) => string> = {
-  'amazon.com': (url) => `${url}?tag=clockworkgift-20`,
-  // Add more affiliate-enabled domains if you can verify them
+const platformSearchMap: Record<string, (query: string) => string> = {
+  amazon: (q) => `https://www.amazon.com/s?k=${encodeURIComponent(q)}`,
+  etsy: (q) => `https://www.etsy.com/search?q=${encodeURIComponent(q)}`,
+  rei: (q) => `https://www.rei.com/search?q=${encodeURIComponent(q)}`,
+  nordstrom: (q) => `https://www.nordstrom.com/sr?keyword=${encodeURIComponent(q)}`,
+  'crate and barrel': (q) => `https://www.crateandbarrel.com/search?query=${encodeURIComponent(q)}`,
+  google: (q) => `https://www.google.com/search?q=${encodeURIComponent(q)}`,
 };
 
-function getAffiliateLinkOrSearch(baseUrl: string, fallbackQuery: string): string {
-  try {
-    const parsed = new URL(baseUrl);
-    const hostname = parsed.hostname.replace('www.', '');
+export async function appendAffiliateLinks(gifts: GiftIdea[]): Promise<GiftIdea[]> {
+  return gifts.map((gift) => {
+    const platform = gift.suggested_platform.toLowerCase().trim();
+    const query = gift.search_query || `${gift.name} ${gift.store_or_brand}`;
 
-    for (const domain in affiliateLinkTemplates) {
-      if (hostname.endsWith(domain)) {
-        return affiliateLinkTemplates[domain](baseUrl);
-      }
-    }
-  } catch {
-    // Ignore malformed URLs
-  }
-
-  // Fallback: Always return search
-  return `https://www.google.com/search?q=${encodeURIComponent(fallbackQuery)}`;
-}
-
-export async function appendAffiliateLinks(
-  suggestions: GiftSuggestion[]
-): Promise<GiftSuggestion[]> {
-  return suggestions.map((item) => {
-    const fallbackQuery = `${item.name} ${item.store_or_brand}`.trim();
-    const finalUrl = getAffiliateLinkOrSearch(item.base_purchase_url, fallbackQuery);
+    const generator = platformSearchMap[platform] || platformSearchMap['google'];
+    const searchUrl = generator(query);
 
     return {
-      ...item,
-      direct_purchase_url: finalUrl,
+      ...gift,
+      direct_purchase_url: searchUrl,
     };
   });
 }

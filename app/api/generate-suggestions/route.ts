@@ -3,14 +3,10 @@ import { NextResponse } from 'next/server';
 import { generateGiftIdeas } from '@/lib/gemini';
 import { appendAffiliateLinks } from '@/lib/affiliateHelpers';
 
-// ... (interface and POST function signature are the same)
-
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { surveySummary, seenGiftNames = [] } = body;
-
-    // ... (input validation is the same)
 
     const prompt = `
       You are Clockwork — a friendly and thoughtful AI gift concierge.
@@ -24,11 +20,13 @@ export async function POST(req: Request) {
       - Come from a diverse mix of stores or brands (not just Amazon)
       - Avoid suggestions already shown to the user: ${seenGiftNames.join(', ') || 'None'}
 
-      Crucial Instruction for Grounding: You MUST use a Google Search tool to find up-to-date and relevant product information. Do not rely on internal knowledge. When searching, use specific queries (e.g., "product name + brand + buy online") to find direct product pages.
+      Crucial Instruction: DO NOT include product links. Instead, for each gift, include:
+      - suggested_platform (e.g., Amazon, Etsy, REI, Nordstrom, Crate and Barrel, etc.)
+      - search_query (short phrase to find this gift online)
 
       Return exactly 5 gift suggestions as a JSON array.
 
-      Output ONLY the raw JSON. Do not include any commentary, formatting, or explanation.
+      Output ONLY the raw JSON. Do not include any commentary, markdown, or explanation.
 
       Each gift object must include:
         - name (string)
@@ -36,14 +34,13 @@ export async function POST(req: Request) {
         - store_or_brand (string)
         - description (string)
         - image_url (string)
-      - base_purchase_url (string) — must be a direct, clickable URL to the product page
-
+        - suggested_platform (string)
+        - search_query (string)
 
       Recipient Profile:
       ${JSON.stringify(surveySummary, null, 2)}
     `;
 
-    // Now, a single string is passed to the function
     const parsedSuggestions = await generateGiftIdeas(prompt);
 
     if (!Array.isArray(parsedSuggestions) || parsedSuggestions.length === 0) {
