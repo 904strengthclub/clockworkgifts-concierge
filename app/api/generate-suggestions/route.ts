@@ -40,18 +40,7 @@ export async function POST(req: Request) {
     `;
 
     // Now, a single string is passed to the function
-    const suggestionsString = await generateGiftIdeas(prompt);
-
-    let parsedSuggestions;
-    try {
-      parsedSuggestions = JSON.parse(suggestionsString);
-    } catch (parseError) {
-      console.error('JSON Parse Error:', parseError, 'Raw Gemini output:', suggestionsString);
-      return NextResponse.json(
-        { error: 'Invalid JSON returned from Gemini.' },
-        { status: 502 }
-      );
-    }
+    const parsedSuggestions = await generateGiftIdeas(prompt);
 
     if (!Array.isArray(parsedSuggestions) || parsedSuggestions.length === 0) {
       return NextResponse.json(
