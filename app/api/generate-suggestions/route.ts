@@ -26,14 +26,18 @@ export async function POST(req: Request) {
 
       Crucial Instruction for Grounding: You MUST use a Google Search tool to find up-to-date and relevant product information. Do not rely on internal knowledge. When searching, use specific queries (e.g., "product name + brand + buy online") to find direct product pages.
 
-      Return ONLY a JSON array of 5 gift objects. Do not include any other text or conversation.
-      Each gift must include:
-      - name (string)
-      - estimated_price (string)
-      - store_or_brand (string)
-      - description (string)
-      - image_url (string)
-      - base_purchase_url (string - This URL must be a direct link to the specific product's page on a merchant website.)
+      Return exactly 5 gift suggestions as a JSON array.
+
+      Output ONLY the raw JSON. Do not include any commentary, formatting, or explanation.
+
+      Each gift object must include:
+        - name (string)
+        - estimated_price (string)
+        - store_or_brand (string)
+        - description (string)
+        - image_url (string)
+      - base_purchase_url (string) — must be a direct, clickable URL to the product page
+
 
       Recipient Profile:
       ${JSON.stringify(surveySummary, null, 2)}
