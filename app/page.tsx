@@ -1,5 +1,5 @@
 // /app/page.tsx
-import Button from '@/components/Button';
+import { Button } from '@/components/ui/Button';
 
 export default function Home() {
   return (
@@ -7,8 +7,8 @@ export default function Home() {
       <div className="max-w-2xl w-full text-center space-y-6">
         <h1 className="text-3xl font-bold">Clockwork Gifts (Beta)</h1>
         <p className="text-gray-700">
-          We’re beta testing a fast, AI-powered Amazon gift concierge. Answer a few questions,
-          and we’ll return 5 ideas you can buy right now.
+          We’re starting with a smart Amazon search concierge. Answer a few questions and get 5 buyable picks.
+          More retailers are coming soon.
         </p>
         <div className="inline-flex gap-3 justify-center">
           <Button href="/start">Start Demo</Button>

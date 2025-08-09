@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Button from '@/components/Button';
+import { Button } from '@/components/ui/Button';
 
 type ChatMsg = { from: 'bot' | 'user'; text: string };
 
@@ -35,7 +35,7 @@ export default function StartPage() {
     { prompt: "Target budget in USD (numbers only, e.g., 300).", setter: setBudgetDisplay, key: 'budget' as const, type: 'number' as const },
   ] as const;
 
-  // auto-grow textarea
+  // auto-grow textarea for 'about'
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => {
     if (questions[step].type === 'textarea' && textareaRef.current) {
@@ -47,45 +47,38 @@ export default function StartPage() {
   function nextBot(line: string) {
     setBotTyping(true);
     setTimeout(() => {
-      setMessages((prev) => [...prev, { from: 'bot', text: line }]);
+      setMessages(prev => [...prev, { from: 'bot', text: line }]);
       setBotTyping(false);
     }, 350);
   }
 
   function validateAndCommit(val: string) {
     const q = questions[step];
-
-    if (q.key === 'date') {
-      if (!/^\d{2}-\d{2}$/.test(val)) {
-        setMessages((prev) => [...prev, { from: 'bot', text: 'Format as MM-DD (e.g., 12-15).' }]);
-        setInputValue('');
-        return false;
-      }
+    if (q.key === 'date' && !/^\d{2}-\d{2}$/.test(val)) {
+      setMessages(prev => [...prev, { from: 'bot', text: 'Format as MM-DD (e.g., 12-15).' }]);
+      setInputValue('');
+      return false;
     }
-
     if (q.key === 'budget') {
       const num = Number(val.replace(/[^\d.]/g, ''));
       if (!Number.isFinite(num) || num <= 0) {
-        setMessages((prev) => [...prev, { from: 'bot', text: 'Please enter a positive number like 300.' }]);
+        setMessages(prev => [...prev, { from: 'bot', text: 'Please enter a positive number like 300.' }]);
         setInputValue('');
         return false;
       }
       setTargetBudget(Math.round(num));
     }
-
     q.setter(val);
-    setMessages((prev) => [...prev, { from: 'user', text: val }]);
+    setMessages(prev => [...prev, { from: 'user', text: val }]);
     return true;
   }
 
   function handleNext() {
     const val = inputValue.trim();
     if (!val) return;
-
     if (!validateAndCommit(val)) return;
-
     if (step < questions.length - 1) {
-      setStep((s) => s + 1);
+      setStep(s => s + 1);
       setInputValue('');
       nextBot(questions[step + 1].prompt);
     } else {
@@ -95,7 +88,7 @@ export default function StartPage() {
 
   async function handleSubmit() {
     setIsSubmitting(true);
-    setMessages((prev) => [...prev, { from: 'bot', text: 'Finding gift ideas…' }]);
+    setMessages(prev => [...prev, { from: 'bot', text: 'Finding gift ideas…' }]);
 
     const surveySummary = {
       name, relationship, occasion, date, about,
@@ -118,9 +111,10 @@ export default function StartPage() {
 
       localStorage.setItem('clockwork_suggestions', JSON.stringify(suggestions));
       localStorage.setItem('clockwork_last_form', JSON.stringify(surveySummary));
+
       router.push('/results');
     } catch (err) {
-      setMessages((prev) => [...prev, { from: 'bot', text: 'Hit a snag. Tap Send again in a few seconds.' }]);
+      setMessages(prev => [...prev, { from: 'bot', text: 'Hit a snag. Tap Send again in a few seconds.' }]);
       setIsSubmitting(false);
     }
   }
@@ -130,7 +124,7 @@ export default function StartPage() {
       <div className="w-full max-w-xl">
         <h1 className="text-2xl font-bold mb-4 text-center">Clockwork Gifts Concierge</h1>
 
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
+        <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm mx-auto">
           <div className="space-y-3">
             {messages.map((m, i) => (
               <div
@@ -161,7 +155,7 @@ export default function StartPage() {
                   onChange={(e) => setInputValue(e.target.value)}
                   className="flex-1 border border-gray-300 p-3 rounded-lg resize-none overflow-hidden"
                   placeholder="Type your answer…"
-                  rows={4} // default taller
+                  rows={4} // bigger by default
                 />
               ) : (
                 <input

@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Button from '@/components/Button';
+import { Button } from '@/components/ui/Button';
 
 type GiftSuggestion = {
   name: string;
@@ -64,7 +64,7 @@ export default function ResultsPage() {
 
   if (suggestions === null) {
     return (
-      <main style={{ padding: 40, fontFamily: 'system-ui, sans-serif' }}>
+      <main className="p-10 font-sans">
         <h1>Gift Suggestions</h1>
         <p>Loading suggestions...</p>
       </main>
@@ -124,8 +124,7 @@ export default function ResultsPage() {
               {loadingMore ? 'Loading…' : `Load 5 more ideas (${loadsLeft} left)`}
             </Button>
           </div>
-        </>
-      )}
+        </> )}
     </main>
   );
 }
