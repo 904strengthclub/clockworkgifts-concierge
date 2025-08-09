@@ -1,4 +1,3 @@
-// /app/api/generate-suggestions/route.ts  (replace the previous patched version)
 import { NextResponse } from 'next/server';
 import { generateGiftIdeasStructured } from '@/lib/gemini';
 import { isAllowlisted, buildRetailerLink, retailerLogo } from '@/lib/retailers';
@@ -7,10 +6,19 @@ type SurveySummary = {
   name: string;
   relationship: string;
   occasion: string;
-  date: string;
+  date: string;                // MM-DD
+  about?: string;
   budget_range?: string;
-  target_budget_usd?: number | null; // NEW
+  target_budget_usd?: number | null;
 };
+
+function toISOFromMMDD(mmdd: string): string {
+  // insert current year purely for context; you are NOT storing identities long term
+  const now = new Date();
+  const [mm, dd] = mmdd.split('-');
+  const y = now.getFullYear();
+  return `${y}-${mm}-${dd}`;
+}
 
 export async function POST(req: Request) {
   try {
@@ -24,15 +32,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
     }
 
-    // Budget band (+0% / −15%). If no numeric given, default to a broad band.
+    // Budget band (+0/-15%) — if missing, use a broad default
     const target = Number(surveySummary.target_budget_usd ?? NaN);
-    const maxBudget = isFinite(target) && target > 0 ? Math.round(target) : 500;
-    const minBudget = isFinite(target) && target > 0 ? Math.round(target * 0.85) : 10;
+    const maxBudget = Number.isFinite(target) && target > 0 ? Math.round(target) : 300;
+    const minBudget = Number.isFinite(target) && target > 0 ? Math.round(target * 0.85) : 25;
+
+    const isoDate = /^\d{2}-\d{2}$/.test(surveySummary.date)
+      ? toISOFromMMDD(surveySummary.date)
+      : surveySummary.date;
 
     const userPrompt = `
 Recipient: ${surveySummary.name} (${surveySummary.relationship})
-Occasion: ${surveySummary.occasion} on ${surveySummary.date}
-Target budget: ${isFinite(target) ? `$${maxBudget} (accept $${minBudget}–$${maxBudget})` : (surveySummary.budget_range || 'unspecified')}
+Occasion: ${surveySummary.occasion} on ${isoDate}
+About: ${surveySummary.about || '—'}
+Target budget: ${Number.isFinite(target) ? `$${maxBudget} (accept $${minBudget}–$${maxBudget})` : (surveySummary.budget_range || 'unspecified')}
 Avoid previously shown items: ${seenGiftNames.length ? seenGiftNames.join(', ') : 'None'}
 `.trim();
 
@@ -41,7 +54,6 @@ Avoid previously shown items: ${seenGiftNames.length ? seenGiftNames.join(', ') 
       return NextResponse.json({ error: 'No suggestions returned from Gemini.' }, { status: 502 });
     }
 
-    // Enforce budget band server-side as well (belt & suspenders)
     const banded = raw.filter(s => s.priceUsd >= minBudget && s.priceUsd <= maxBudget);
 
     const out = banded
@@ -59,7 +71,7 @@ Avoid previously shown items: ${seenGiftNames.length ? seenGiftNames.join(', ') 
           search_query: s.query,
           one_liner: s.oneLiner,
           id_hint: s.idHint,
-          url, // for CTA
+          url,
         };
       });
 

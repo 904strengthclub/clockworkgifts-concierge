@@ -1,72 +1,79 @@
-// /lib/gemini.ts  (replace the previous patched version with this)
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ALLOWLIST } from '@/lib/retailers';
 
-const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) throw new Error('Missing GEMINI_API_KEY');
+const ai = new GoogleGenerativeAI(apiKey);
 
 export interface ModelGiftSuggestion {
   title: string;
   oneLiner: string;
-  retailer: string;      // allowlisted domain
-  query: string;         // search terms
+  retailer: string;
+  query: string;
   idHint?: string;
-  priceUsd: number;      // NEW: numeric price for filtering
-  priceBand: string;     // friendly display, e.g. "$250–$300"
+  priceUsd: number;
+  priceBand: string;
   reason: string;
 }
 
 const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-export async function generateGiftIdeasStructured(userPrompt: string, minBudget: number, maxBudget: number): Promise<ModelGiftSuggestion[]> {
-  const retailerList = ALLOWLIST.join(', ');
-  const groundingPrompt = `
+export async function generateGiftIdeasStructured(
+  userPrompt: string,
+  minBudget: number,
+  maxBudget: number
+): Promise<ModelGiftSuggestion[]> {
+  const retailers = ALLOWLIST.join(', ');
+
+  const generationConfig = {
+    responseMimeType: 'application/json',
+  } as any;
+
+  const system = `
 You are Clockwork — an elite AI gifting concierge.
 
 Budget rule:
-- Every suggestion's numeric price (priceUsd) MUST be between ${minBudget} and ${maxBudget}, inclusive.
+- Each suggestion.priceUsd MUST be between ${minBudget} and ${maxBudget} inclusive.
 
-Return EXACTLY 5 suggestions as STRICT JSON with shape:
+Return EXACTLY 5 suggestions as JSON:
 {
   "suggestions": [
     {
       "title": "string",
       "oneLiner": "string",
-      "retailer": "one of [${retailerList}]",
+      "retailer": "one of [${retailers}]",
       "query": "string",
-      "idHint": "optional",
+      "idHint": "optional string",
       "priceUsd": 123.45,
-      "priceBand": "string like $250–$300",
+      "priceBand": "e.g., $250–$300",
       "reason": "string"
     }
   ]
 }
 
 Rules:
-- Do NOT output any URLs or images.
-- "retailer" MUST be one of [${retailerList}].
-- "priceUsd" MUST be a number within the budget band above (no text).
-- Keep "oneLiner" snappy; "reason" ties to recipient context.
-- Output ONLY the JSON object. No markdown, no prose.
-
-User Input:
-${userPrompt}
+- Do NOT output URLs or images.
+- "retailer" MUST be one of [${retailers}].
+- "priceUsd" MUST be numeric within budget band.
+- Keep oneLiner punchy; reason ties to the recipient.
+- Output ONLY the JSON object above.
   `.trim();
 
-  try {
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: groundingPrompt }] }],
-    });
-    const text = result.response.text();
-    const match = text.match(/\{\s*"suggestions"\s*:\s*\[\s*{[\s\S]*}\s*\]\s*\}/);
-    if (!match) return [];
+  const res = await model.generateContent({
+    contents: [{ role: 'user', parts: [{ text: `${system}\n\nUser Input:\n${userPrompt}` }] }],
+    generationConfig,
+  });
 
-    const parsed = JSON.parse(match[0]) as { suggestions: ModelGiftSuggestion[] };
+  // With responseMimeType=application/json, .text() should be clean JSON
+  const json = res.response.text();
+  try {
+    const parsed = JSON.parse(json) as { suggestions: ModelGiftSuggestion[] };
     const clean = (parsed.suggestions || []).filter(s =>
       s?.title && s?.oneLiner && s?.retailer && s?.query && typeof s?.priceUsd === 'number' && s?.priceBand && s?.reason
     );
     return clean;
   } catch (e) {
-    console.error('Gemini API error:', e);
+    console.error('Gemini JSON parse error:', e, json);
     return [];
   }
 }
