@@ -1,8 +1,8 @@
-// /app/results/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/Button';
+import Button from '@/components/ui/Button';
+import Feedback from '@/components/Feedback';
 
 type GiftSuggestion = {
   name: string;
@@ -75,10 +75,8 @@ export default function ResultsPage() {
     <main className="p-10 font-sans">
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-bold">Gift Suggestions</h1>
-        <div className="ml-auto">
-          <Button
-            onClick={() => { try { localStorage.removeItem('clockwork_suggestions'); } catch {} window.location.href = '/start'; }}
-          >
+        <div className="ml-auto flex gap-2">
+          <Button onClick={() => { try { localStorage.removeItem('clockwork_suggestions'); } catch {} window.location.href = '/start'; }}>
             Start over
           </Button>
         </div>
@@ -120,11 +118,16 @@ export default function ResultsPage() {
           </ul>
 
           <div className="flex items-center gap-3 mt-4">
-            <Button onClick={loadMore} disabled={loadsLeft <= 0 || loadingMore} className={loadsLeft <= 0 ? 'opacity-50' : ''}>
+            <Button onClick={loadMore} disabled={loadsLeft <= 0 || loadingMore} className={loadsLeft <= 0 ? 'opacity-50' : ''} variant="soft">
               {loadingMore ? 'Loading…' : `Load 5 more ideas (${loadsLeft} left)`}
             </Button>
           </div>
-        </> )}
+
+          <div className="mt-8">
+            <Feedback />
+          </div>
+        </>
+      )}
     </main>
   );
 }

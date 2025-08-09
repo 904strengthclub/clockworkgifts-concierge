@@ -1,5 +1,4 @@
-// /app/(legal)/disclaimer/page.tsx
-import { Button } from '@/components/ui/Button';
+import Button from '@/components/ui/Button';
 
 export default function Disclaimer() {
   return (
@@ -13,9 +12,7 @@ export default function Disclaimer() {
           <p><strong>Privacy.</strong> We don’t sell personal info. Basic analytics may be used to improve suggestions. Don’t enter sensitive data.</p>
         </div>
         <div className="flex gap-3 pt-2">
-          <Button href="mailto:support@clockworkgifts.com" className="bg-white text-gray-800 border border-gray-300">
-            Email Support
-          </Button>
+          <Button href="mailto:support@clockworkgifts.com" variant="outline">Email Support</Button>
           <Button href="/">Back to Home</Button>
         </div>
       </div>

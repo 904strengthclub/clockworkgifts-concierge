@@ -1,15 +1,13 @@
-// /app/start/page.tsx
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/Button';
+import Button from '@/components/ui/Button';
 
 type ChatMsg = { from: 'bot' | 'user'; text: string };
 
 export default function StartPage() {
   const router = useRouter();
-
   const [step, setStep] = useState(0);
   const [messages, setMessages] = useState<ChatMsg[]>([
     { from: 'bot', text: "Hey! I’m your Clockwork gift concierge. Who are we shopping for?" },
@@ -35,7 +33,6 @@ export default function StartPage() {
     { prompt: "Target budget in USD (numbers only, e.g., 300).", setter: setBudgetDisplay, key: 'budget' as const, type: 'number' as const },
   ] as const;
 
-  // auto-grow textarea for 'about'
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => {
     if (questions[step].type === 'textarea' && textareaRef.current) {
@@ -105,15 +102,12 @@ export default function StartPage() {
       if (!res.ok) throw new Error(`API error: ${res.status}`);
 
       const suggestions = await res.json();
-      if (!Array.isArray(suggestions) || suggestions.length === 0) {
-        throw new Error('No valid suggestions.');
-      }
+      if (!Array.isArray(suggestions) || suggestions.length === 0) throw new Error('No valid suggestions.');
 
       localStorage.setItem('clockwork_suggestions', JSON.stringify(suggestions));
       localStorage.setItem('clockwork_last_form', JSON.stringify(surveySummary));
-
       router.push('/results');
-    } catch (err) {
+    } catch {
       setMessages(prev => [...prev, { from: 'bot', text: 'Hit a snag. Tap Send again in a few seconds.' }]);
       setIsSubmitting(false);
     }
@@ -124,15 +118,10 @@ export default function StartPage() {
       <div className="w-full max-w-xl">
         <h1 className="text-2xl font-bold mb-4 text-center">Clockwork Gifts Concierge</h1>
 
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm mx-auto">
+        <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
           <div className="space-y-3">
             {messages.map((m, i) => (
-              <div
-                key={i}
-                className={`px-3 py-2 rounded-lg max-w-[80%] ${
-                  m.from === 'bot' ? 'bg-gray-100 text-left' : 'bg-blue-100 text-right ml-auto'
-                }`}
-              >
+              <div key={i} className={`px-3 py-2 rounded-lg max-w-[80%] ${m.from === 'bot' ? 'bg-gray-100 text-left' : 'bg-blue-100 text-right ml-auto'}`}>
                 {m.text}
               </div>
             ))}
@@ -144,10 +133,7 @@ export default function StartPage() {
           </div>
 
           {!isSubmitting && (
-            <form
-              onSubmit={(e) => { e.preventDefault(); if (inputValue.trim()) handleNext(); }}
-              className="flex gap-2 mt-4 items-end"
-            >
+            <form onSubmit={(e) => { e.preventDefault(); if (inputValue.trim()) handleNext(); }} className="flex gap-2 mt-4 items-end">
               {questions[step].type === 'textarea' ? (
                 <textarea
                   ref={textareaRef}
@@ -155,7 +141,7 @@ export default function StartPage() {
                   onChange={(e) => setInputValue(e.target.value)}
                   className="flex-1 border border-gray-300 p-3 rounded-lg resize-none overflow-hidden"
                   placeholder="Type your answer…"
-                  rows={4} // bigger by default
+                  rows={4}
                 />
               ) : (
                 <input
