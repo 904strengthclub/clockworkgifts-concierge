@@ -6,18 +6,21 @@ type SurveySummary = {
   name: string;
   relationship: string;
   occasion: string;
-  date: string;                // MM-DD
+  date: string;       // MM-DD or ISO
   about?: string;
   budget_range?: string;
   target_budget_usd?: number | null;
 };
 
 function toISOFromMMDD(mmdd: string): string {
-  // insert current year purely for context; you are NOT storing identities long term
   const now = new Date();
   const [mm, dd] = mmdd.split('-');
-  const y = now.getFullYear();
-  return `${y}-${mm}-${dd}`;
+  return `${now.getFullYear()}-${mm}-${dd}`;
+}
+
+async function fetchInBand(prompt: string, minBudget: number, maxBudget: number) {
+  const raw = await generateGiftIdeasStructured(prompt, minBudget, maxBudget);
+  return raw.filter(s => s.priceUsd >= minBudget && s.priceUsd <= maxBudget);
 }
 
 export async function POST(req: Request) {
@@ -32,7 +35,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
     }
 
-    // Budget band (+0/-15%) — if missing, use a broad default
     const target = Number(surveySummary.target_budget_usd ?? NaN);
     const maxBudget = Number.isFinite(target) && target > 0 ? Math.round(target) : 300;
     const minBudget = Number.isFinite(target) && target > 0 ? Math.round(target * 0.85) : 25;
@@ -45,35 +47,37 @@ export async function POST(req: Request) {
 Recipient: ${surveySummary.name} (${surveySummary.relationship})
 Occasion: ${surveySummary.occasion} on ${isoDate}
 About: ${surveySummary.about || '—'}
-Target budget: ${Number.isFinite(target) ? `$${maxBudget} (accept $${minBudget}–$${maxBudget})` : (surveySummary.budget_range || 'unspecified')}
 Avoid previously shown items: ${seenGiftNames.length ? seenGiftNames.join(', ') : 'None'}
 `.trim();
 
-    const raw = await generateGiftIdeasStructured(userPrompt, minBudget, maxBudget);
-    if (!Array.isArray(raw) || raw.length === 0) {
-      return NextResponse.json({ error: 'No suggestions returned from Gemini.' }, { status: 502 });
+    // First attempt
+    let banded = await fetchInBand(userPrompt, minBudget, maxBudget);
+
+    // Retry once if fewer than 5 or suspiciously low prices slipped through
+    if (banded.length < 5) {
+      banded = await fetchInBand(userPrompt + '\nStrictly keep each price within the budget band.', minBudget, maxBudget);
     }
 
-    const banded = raw.filter(s => s.priceUsd >= minBudget && s.priceUsd <= maxBudget);
-
+    // Map to legacy shape; allow fewer than 5 if that’s what’s in-band
     const out = banded
       .filter(s => isAllowlisted(s.retailer))
-      .slice(0, 5)
-      .map(s => {
-        const url = buildRetailerLink(s.retailer as any, s.query, s.idHint);
-        return {
-          name: s.title,
-          estimated_price: s.priceBand,
-          store_or_brand: s.retailer,
-          description: s.reason,
-          image_url: retailerLogo(s.retailer),
-          suggested_platform: s.retailer,
-          search_query: s.query,
-          one_liner: s.oneLiner,
-          id_hint: s.idHint,
-          url,
-        };
-      });
+      .map(s => ({
+        name: s.title,
+        estimated_price: s.priceBand,
+        store_or_brand: s.retailer,
+        description: s.reason,
+        image_url: retailerLogo(),
+        suggested_platform: s.retailer,
+        search_query: s.query,
+        one_liner: s.oneLiner,
+        id_hint: s.idHint,
+        url: buildRetailerLink(s.retailer as any, s.query, s.idHint),
+      }))
+      .slice(0, 5);
+
+    if (!out.length) {
+      return NextResponse.json({ error: 'No suggestions returned from Gemini.' }, { status: 502 });
+    }
 
     return NextResponse.json(out);
   } catch (err) {

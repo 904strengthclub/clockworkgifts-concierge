@@ -1,7 +1,7 @@
 // /lib/retailers.ts
 
-// ------------- Allowlist -------------
-export const ALLOWLIST = [
+// Keep this simple and boring for tonight’s beta:
+export const ALLOWLIST: string[] = [
   'amazon.com',
   'etsy.com',
   'uncommongoods.com',
@@ -29,17 +29,15 @@ export const ALLOWLIST = [
   'giftory.com',
   'hatch.co',
   'paperlesspost.com',
-] as const;
+];
 
-export type AllowlistedRetailer = typeof ALLOWLIST[number];
-
-export function isAllowlisted(retailer: string): retailer is AllowlistedRetailer {
-  return (ALLOWLIST as readonly string[]).includes((retailer || '').toLowerCase());
+export function isAllowlisted(retailer: string): boolean {
+  return ALLOWLIST.includes((retailer || '').toLowerCase());
 }
 
-// ------------- URL builder -------------
-export function buildRetailerLink(retailer: AllowlistedRetailer, query: string, idHint?: string) {
-  const r = retailer.toLowerCase() as AllowlistedRetailer;
+// Deterministic URL builder — NEVER trust model URLs
+export function buildRetailerLink(retailer: string, query: string, idHint?: string): string {
+  const r = (retailer || '').toLowerCase();
 
   if (r === 'amazon.com') {
     if (idHint && /^[A-Z0-9]{10}$/.test(idHint)) {
@@ -47,46 +45,35 @@ export function buildRetailerLink(retailer: AllowlistedRetailer, query: string, 
     }
     return `/api/go?u=${encodeURIComponent(`https://www.amazon.com/s?k=${encodeURIComponent(query)}`)}&r=${r}`;
   }
-
   if (r === 'etsy.com') {
     return `/api/go?u=${encodeURIComponent(`https://www.etsy.com/search?q=${encodeURIComponent(query)}`)}&r=${r}`;
   }
-
   if (r === 'nordstrom.com') {
     return `/api/go?u=${encodeURIComponent(
       `https://www.nordstrom.com/s?origin=keywordsearch&keyword=${encodeURIComponent(query)}`
     )}&r=${r}`;
   }
-
-  if (r === 'markandgraham.com') {
-    return `/api/go?u=${encodeURIComponent(`https://www.markandgraham.com/search?q=${encodeURIComponent(query)}`)}&r=${r}`;
+  if (r === 'uncommongoods.com') {
+    return `/api/go?u=${encodeURIComponent(`https://www.uncommongoods.com/search?keywords=${encodeURIComponent(query)}`)}&r=${r}`;
   }
-
   if (r === 'crateandbarrel.com') {
     return `/api/go?u=${encodeURIComponent(`https://www.crateandbarrel.com/search?q=${encodeURIComponent(query)}`)}&r=${r}`;
   }
-
+  if (r === 'williams-sonoma.com') {
+    return `/api/go?u=${encodeURIComponent(`https://www.williams-sonoma.com/search?q=${encodeURIComponent(query)}`)}&r=${r}`;
+  }
   if (r === 'anthropologie.com') {
     return `/api/go?u=${encodeURIComponent(`https://www.anthropologie.com/search?q=${encodeURIComponent(query)}`)}&r=${r}`;
+  }
+  if (r === 'food52.com') {
+    return `/api/go?u=${encodeURIComponent(`https://food52.com/shop/search?q=${encodeURIComponent(query)}`)}&r=${r}`;
   }
 
   // Generic fallback
   return `/api/go?u=${encodeURIComponent(`https://${r}/search?q=${encodeURIComponent(query)}`)}&r=${r}`;
 }
 
-// ------------- Retailer logo helper -------------
-// Point these to files you place in /public/retailers/*
-export function retailerLogo(retailer: string): string {
-  const r = (retailer || '').toLowerCase();
-  const map: Record<string, string> = {
-    'amazon.com': '/retailers/amazon.svg',
-    'etsy.com': '/retailers/etsy.svg',
-    'uncommongoods.com': '/retailers/uncommongoods.svg',
-    'crateandbarrel.com': '/retailers/crateandbarrel.svg',
-    'nordstrom.com': '/retailers/nordstrom.svg',
-    'anthropologie.com': '/retailers/anthropologie.svg',
-    'markandgraham.com': '/retailers/markandgraham.svg',
-    'cratejoy.com': '/retailers/cratejoy.svg',
-  };
-  return map[r] ?? '/retailers/generic-store.svg';
+// For beta, avoid brand logos—use a generic placeholder icon path or ignore in UI
+export function retailerLogo(): string {
+  return '/retailers/generic-store.svg';
 }

@@ -4,20 +4,14 @@ export default function Home() {
       <div className="max-w-2xl w-full text-center space-y-6">
         <h1 className="text-3xl font-bold">Clockwork Gifts (Beta)</h1>
         <p className="text-gray-700">
-          We’re beta testing a fast, AI-powered gift concierge to prep for launch. Try the demo—
-          we’ll ask a few questions and return 5 buyable picks that match your budget.
+          We’re beta testing a fast, AI-powered gift concierge. Answer a few questions,
+          and we’ll return 5 gift ideas you can buy right now.
         </p>
         <div className="inline-flex gap-3">
-          <a
-            href="/start"
-            className="bg-black text-white px-5 py-3 rounded-lg font-semibold"
-          >
+          <a href="/start" className="bg-black text-white px-5 py-3 rounded-lg font-semibold">
             Start Demo
           </a>
-          <a
-            href="/disclaimer"
-            className="px-5 py-3 rounded-lg border border-gray-300 text-gray-700"
-          >
+          <a href="/disclaimer" className="px-5 py-3 rounded-lg border border-gray-300 text-gray-700">
             Read Disclaimer
           </a>
         </div>
