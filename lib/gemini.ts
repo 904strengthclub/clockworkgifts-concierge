@@ -1,74 +1,50 @@
+// lib/gemini.ts
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const apiKey = process.env.GEMINI_API_KEY;
-if (!apiKey) throw new Error('Missing GEMINI_API_KEY');
-const ai = new GoogleGenerativeAI(apiKey);
-
-export interface ModelGiftSuggestion {
-  title: string;
-  oneLiner: string;
-  retailer: string;   // "amazon.com"
-  query: string;      // Amazon search phrase
-  idHint?: string;    // optional ASIN
-  priceUsd: number;
-  priceBand: string;
-  reason: string;
-}
-
-const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
-
-function tryParseStrict(json: string) {
-  const cleaned = json
-    .replace(/[\u0000-\u001F]/g, '')
-    .replace(/^[^\{\[]+/, '')
-    .replace(/[^}\]]+$/, '');
-  return JSON.parse(cleaned);
-}
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const model = genAI.getGenerativeModel({
+  model: 'gemini-2.0-flash',
+  generationConfig: { temperature: 0.8, maxOutputTokens: 800 },
+});
 
 export async function generateGiftIdeasStructured(
-  userPrompt: string,
+  history: any[],
   minBudget: number,
   maxBudget: number
-): Promise<ModelGiftSuggestion[]> {
-  const system = `
-Return ONLY JSON:
-{"suggestions":[
-  {"title":"","oneLiner":"","retailer":"amazon.com","query":"","idHint":"","priceUsd":0,"priceBand":"","reason":""}
-]}
-
-Rules:
-- Return 8–10 suggestions.
-- retailer MUST be "amazon.com".
-- priceUsd MUST be between ${minBudget} and ${maxBudget}, inclusive.
-- query MUST be a concise Amazon search phrase (no URL).
-- JSON only. No markdown or extra text.
-`.trim();
-
-  const genCfg: any = { responseMimeType: 'application/json' };
-  const req = {
-    contents: [{ role: 'user', parts: [{ text: `${system}\n\nUser Input:\n${userPrompt}` }] }],
-    generationConfig: genCfg
-  };
-
-  const parseClean = (txt: string) => {
-    const parsed = tryParseStrict(txt) as { suggestions: ModelGiftSuggestion[] };
-    const clean = (parsed.suggestions || []).filter(s =>
-      s?.title && s?.oneLiner && s?.query && typeof s?.priceUsd === 'number' && s?.reason
-    );
-    return clean.map(s => ({ ...s, retailer: 'amazon.com', priceUsd: Math.round(Number(s.priceUsd)) }));
-  };
-
+) {
   try {
-    return parseClean((await model.generateContent(req)).response.text());
-  } catch {
-    const retry = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text:
-        `JSON only with 8–10 in-band items (${minBudget}-${maxBudget}). ` +
-        `Shape: {"suggestions":[{"title":"","oneLiner":"","retailer":"amazon.com","query":"","priceUsd":0,"priceBand":"","reason":""}]}\n` +
-        userPrompt
-      }] }],
-      generationConfig: genCfg
-    });
-    try { return parseClean(retry.response.text()); } catch { return []; }
+    const prompt = `
+Generate exactly 5 creative gift ideas within the price range ${minBudget}–${maxBudget} USD.  
+Each result must be unique and aimed at the recipient profile provided.  
+Return only valid JSON in the format:
+[
+  {
+    "name": "Gift Name",
+    "description": "Short appealing description",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=search+terms&rh=p_36%3A${minBudget*100}-${maxBudget*100}"
+  }
+]
+Notes:
+- Use general keywords for search terms, no brand names unless very common.
+- Use &rh=p_36%3A[minCents]-[maxCents] in Amazon URL to enforce price range.
+- Do not include duplicate items.
+`;
+
+    const chat = model.startChat({ history });
+    const result = await chat.sendMessage([{ text: prompt }]);
+
+    const text = result.response.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+    let parsed: any[] = [];
+
+    try {
+      parsed = JSON.parse(text);
+    } catch (err) {
+      console.warn('JSON parse error, returning empty list:', err);
+    }
+
+    return parsed;
+  } catch (error) {
+    console.error('Gemini API error:', error);
+    return [];
   }
 }

@@ -1,54 +1,51 @@
-// /lib/affiliateHelpers.ts
-import { isAllowlisted, buildRetailerLink, retailerLogo } from '@/lib/retailers';
+// lib/affiliateHelpers.ts
 
-// Shape your results page expects
-export interface LegacySuggestion {
-  name: string;
-  estimated_price: string;
-  store_or_brand: string;     // retailer domain (e.g., "amazon.com")
-  description: string;
-  image_url?: string;         // we’ll default to a generic placeholder
-  suggested_platform?: string;// retailer domain (same as store_or_brand)
-  search_query?: string;      // human-searchable terms
-  one_liner?: string;
-  id_hint?: string;
-  url?: string;               // final CTA via /api/go
+/**
+ * Builds an Amazon search link with optional price constraints.
+ * Price constraints are applied using Amazon's low-price/high-price parameters.
+ * The keyword is URL-encoded to ensure valid search URLs.
+ */
+export function buildAmazonSearchLink(keyword: string, minPrice?: number, maxPrice?: number) {
+  const encodedKeyword = encodeURIComponent(keyword.trim());
+  let url = `https://www.amazon.com/s?k=${encodedKeyword}`;
+
+  if (minPrice !== undefined && maxPrice !== undefined) {
+    url += `&low-price=${minPrice}&high-price=${maxPrice}`;
+  }
+
+  return url;
 }
 
 /**
- * Ensure each suggestion has:
- * - deterministic, affiliate-safe `url` (built server-side)
- * - stable `image_url` (generic placeholder)
- * - normalized retailer domain
+ * Maps a budget value into a min/max price range with +0% / -20% band.
  */
-export async function appendAffiliateLinks(
-  suggestions: LegacySuggestion[]
-): Promise<LegacySuggestion[]> {
-  return suggestions.map((s) => {
-    const retailerRaw =
-      (s.suggested_platform || s.store_or_brand || '').toLowerCase().trim();
+export function mapBudgetToPriceBand(budget: number) {
+  const min = Math.max(0, Math.floor(budget * 0.8)); // 20% below budget
+  const max = Math.floor(budget); // No over-budget allowance
+  return { min, max };
+}
 
-    const safeRetailer =
-      isAllowlisted(retailerRaw) ? retailerRaw : (s.store_or_brand || '').toLowerCase().trim();
+/**
+ * Appends affiliate tags and ensures min/max price are preserved.
+ * Accepts an array of gift ideas and returns updated array with affiliate search links.
+ */
+export function appendAffiliateLinks(
+  ideas: { name: string; description: string; amazonSearchUrl?: string }[],
+  minPrice?: number,
+  maxPrice?: number
+) {
+  const affiliateTag = 'clockworkgift-20';
 
-    // Build URL deterministically; never trust model URLs
-    const url = isAllowlisted(safeRetailer)
-      ? buildRetailerLink(safeRetailer, s.search_query || s.name, s.id_hint)
-      : `/api/go?u=${encodeURIComponent(
-          `https://www.google.com/search?q=site:${safeRetailer || 'amazon.com'}+${encodeURIComponent(
-            s.search_query || s.name
-          )}`
-        )}&r=${encodeURIComponent(safeRetailer || 'amazon.com')}`;
+  return ideas.map((idea) => {
+    // Build a search URL from the gift name if not already provided
+    const searchUrl = buildAmazonSearchLink(idea.name, minPrice, maxPrice);
 
-    // Always use our generic placeholder to avoid trademark/logo issues
-    const img = retailerLogo(); // <-- no args now
+    // Append affiliate tag to the URL
+    const finalUrl = `${searchUrl}&tag=${affiliateTag}`;
 
     return {
-      ...s,
-      store_or_brand: safeRetailer || s.store_or_brand,
-      suggested_platform: safeRetailer || s.suggested_platform,
-      image_url: img,
-      url,
+      ...idea,
+      amazonSearchUrl: finalUrl,
     };
   });
 }
