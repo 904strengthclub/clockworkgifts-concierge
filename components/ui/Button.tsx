@@ -38,10 +38,9 @@ export function Button({
 
   const classes = `${base} ${sizes[size]} ${variants[variant]} ${className}`;
 
-  if (href) {
-    return <Link href={href} className={classes}>{children}</Link>;
-  }
+  if (href) return <Link href={href} className={classes}>{children}</Link>;
   return <button className={classes} {...rest}>{children}</button>;
 }
 
 export default Button;
+

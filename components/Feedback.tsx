@@ -26,12 +26,12 @@ export default function Feedback() {
     }
   }
 
-  if (done) return <p className="text-sm text-gray-600">Thanks for the feedback! {done === 'up' ? '👍' : '👎'}</p>;
+  if (done) return <p className="text-sm text-gray-600 text-center">Thanks for the feedback! {done === 'up' ? '👍' : '👎'}</p>;
 
   return (
-    <div className="flex items-center gap-2">
-      <Button size="sm" onClick={() => send('up')} disabled={sending}>👍</Button>
-      <Button size="sm" variant="outline" onClick={() => send('down')} disabled={sending}>👎</Button>
+    <div className="flex items-center justify-center gap-3">
+      <Button size="md" onClick={() => send('up')} disabled={sending}>👍</Button>
+      <Button size="md" variant="outline" onClick={() => send('down')} disabled={sending}>👎</Button>
     </div>
   );
 }

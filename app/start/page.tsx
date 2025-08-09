@@ -8,6 +8,7 @@ type ChatMsg = { from: 'bot' | 'user'; text: string };
 
 export default function StartPage() {
   const router = useRouter();
+
   const [step, setStep] = useState(0);
   const [messages, setMessages] = useState<ChatMsg[]>([
     { from: 'bot', text: "Hey! I’m your Clockwork gift concierge. Who are we shopping for?" },
@@ -139,7 +140,7 @@ export default function StartPage() {
                   ref={textareaRef}
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
-                  className="flex-1 border border-gray-300 p-3 rounded-lg resize-none overflow-hidden"
+                  className="flex-1 w-full border border-gray-300 p-3 rounded-lg resize-none overflow-hidden"
                   placeholder="Type your answer…"
                   rows={4}
                 />
@@ -153,7 +154,7 @@ export default function StartPage() {
                   placeholder={questions[step].key === 'date' ? 'MM-DD' : 'Type your answer…'}
                 />
               )}
-              <Button type="submit">Send</Button>
+              <Button type="submit" size="md">Send</Button>
             </form>
           )}
 

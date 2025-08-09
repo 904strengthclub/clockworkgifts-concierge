@@ -1,5 +1,6 @@
 // app/layout.tsx
 import React from 'react';
+import './globals.css'; // <-- ensure this exists and includes tailwind base/components/utilities
 
 export const metadata = {
   title: 'Clockwork Gifts Concierge',
@@ -9,7 +10,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, fontFamily: 'system-ui, sans-serif' }}>
+      <body className="m-0 min-h-screen bg-gray-50 text-gray-900 antialiased">
         {children}
       </body>
     </html>
