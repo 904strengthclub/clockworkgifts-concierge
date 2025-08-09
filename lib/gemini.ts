@@ -1,5 +1,5 @@
+// /lib/gemini.ts
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { ALLOWLIST } from '@/lib/retailers';
 
 const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) throw new Error('Missing GEMINI_API_KEY');
@@ -8,9 +8,9 @@ const ai = new GoogleGenerativeAI(apiKey);
 export interface ModelGiftSuggestion {
   title: string;
   oneLiner: string;
-  retailer: string;
-  query: string;
-  idHint?: string;
+  retailer: string;   // we’ll force "amazon.com"
+  query: string;      // search phrase for Amazon
+  idHint?: string;    // optional ASIN if the model knows one (rare)
   priceUsd: number;
   priceBand: string;
   reason: string;
@@ -18,62 +18,70 @@ export interface ModelGiftSuggestion {
 
 const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
+function tryParseStrict(json: string) {
+  const cleaned = json
+    .replace(/[\u0000-\u001F]/g, '')
+    .replace(/^[^\{\[]+/, '')
+    .replace(/[^}\]]+$/, '');
+  return JSON.parse(cleaned);
+}
+
 export async function generateGiftIdeasStructured(
   userPrompt: string,
   minBudget: number,
   maxBudget: number
 ): Promise<ModelGiftSuggestion[]> {
-  const retailers = ALLOWLIST.join(', ');
-
-  const generationConfig = {
-    responseMimeType: 'application/json',
-  } as any;
-
   const system = `
-You are Clockwork — an elite AI gifting concierge.
-
-Budget rule:
-- Each suggestion.priceUsd MUST be between ${minBudget} and ${maxBudget} inclusive.
-
-Return EXACTLY 5 suggestions as JSON:
+Return ONLY JSON with shape:
 {
   "suggestions": [
     {
       "title": "string",
       "oneLiner": "string",
-      "retailer": "one of [${retailers}]",
-      "query": "string",
-      "idHint": "optional string",
+      "retailer": "amazon.com",
+      "query": "short Amazon search phrase",
+      "idHint": "optional ASIN",
       "priceUsd": 123.45,
-      "priceBand": "e.g., $250–$300",
-      "reason": "string"
+      "priceBand": "$100–$150",
+      "reason": "why this fits the recipient"
     }
   ]
 }
 
 Rules:
-- Do NOT output URLs or images.
-- "retailer" MUST be one of [${retailers}].
-- "priceUsd" MUST be numeric within budget band.
-- Keep oneLiner punchy; reason ties to the recipient.
-- Output ONLY the JSON object above.
-  `.trim();
+- retailer MUST be "amazon.com".
+- priceUsd MUST be between ${minBudget} and ${maxBudget}, inclusive.
+- No URLs or markdown. JSON only.
+`.trim();
 
-  const res = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: `${system}\n\nUser Input:\n${userPrompt}` }] }],
-    generationConfig,
-  });
+  const genCfg: any = { responseMimeType: 'application/json' };
+  const req = { contents: [{ role: 'user', parts: [{ text: `${system}\n\nUser Input:\n${userPrompt}` }] }], generationConfig: genCfg };
 
-  // With responseMimeType=application/json, .text() should be clean JSON
-  const json = res.response.text();
+  const res = await model.generateContent(req);
+  const raw = res.response.text();
+
   try {
-    const parsed = JSON.parse(json) as { suggestions: ModelGiftSuggestion[] };
+    const parsed = tryParseStrict(raw) as { suggestions: ModelGiftSuggestion[] };
     const clean = (parsed.suggestions || []).filter(s =>
-      s?.title && s?.oneLiner && s?.retailer && s?.query && typeof s?.priceUsd === 'number' && s?.priceBand && s?.reason
+      s?.title && s?.oneLiner && s?.query && typeof s?.priceUsd === 'number' && s?.priceBand && s?.reason
     );
-    return clean;
-  } catch (e) {
-    console.error('Gemini JSON parse error:', e, json);
-    return [];
+    return clean.map(s => ({ ...s, retailer: 'amazon.com' })); // belt & suspenders
+  } catch (e1) {
+    // Retry once, shorter
+    const retry = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text:
+        `JSON only: {"suggestions":[{"title":"","oneLiner":"","retailer":"amazon.com","query":"","priceUsd":0,"priceBand":"","reason":""}]}\n\nBudget ${minBudget}-${maxBudget}\n\n${userPrompt}`
+      }] }],
+      generationConfig: genCfg,
+    });
+    try {
+      const parsed2 = tryParseStrict(retry.response.text()) as { suggestions: ModelGiftSuggestion[] };
+      const clean2 = (parsed2.suggestions || []).filter(s =>
+        s?.title && s?.oneLiner && s?.query && typeof s?.priceUsd === 'number' && s?.priceBand && s?.reason
+      );
+      return clean2.map(s => ({ ...s, retailer: 'amazon.com' }));
+    } catch {
+      return [];
+    }
   }
 }

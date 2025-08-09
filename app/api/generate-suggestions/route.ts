@@ -1,12 +1,13 @@
+// /app/api/generate-suggestions/route.ts
 import { NextResponse } from 'next/server';
 import { generateGiftIdeasStructured } from '@/lib/gemini';
-import { isAllowlisted, buildRetailerLink, retailerLogo } from '@/lib/retailers';
+import { buildRetailerLink } from '@/lib/retailers';
 
 type SurveySummary = {
   name: string;
   relationship: string;
   occasion: string;
-  date: string;       // MM-DD or ISO
+  date: string;              // MM-DD or ISO; we use for context only
   about?: string;
   budget_range?: string;
   target_budget_usd?: number | null;
@@ -18,17 +19,11 @@ function toISOFromMMDD(mmdd: string): string {
   return `${now.getFullYear()}-${mm}-${dd}`;
 }
 
-async function fetchInBand(prompt: string, minBudget: number, maxBudget: number) {
-  const raw = await generateGiftIdeasStructured(prompt, minBudget, maxBudget);
-  return raw.filter(s => s.priceUsd >= minBudget && s.priceUsd <= maxBudget);
-}
-
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({} as any));
     const { surveySummary, seenGiftNames = [] } = body as {
-      surveySummary: SurveySummary;
-      seenGiftNames?: string[];
+      surveySummary: SurveySummary; seenGiftNames?: string[];
     };
 
     if (!surveySummary?.name || !surveySummary?.relationship || !surveySummary?.occasion || !surveySummary?.date) {
@@ -50,34 +45,27 @@ About: ${surveySummary.about || '—'}
 Avoid previously shown items: ${seenGiftNames.length ? seenGiftNames.join(', ') : 'None'}
 `.trim();
 
-    // First attempt
-    let banded = await fetchInBand(userPrompt, minBudget, maxBudget);
+    let suggestions = await generateGiftIdeasStructured(userPrompt, minBudget, maxBudget);
 
-    // Retry once if fewer than 5 or suspiciously low prices slipped through
-    if (banded.length < 5) {
-      banded = await fetchInBand(userPrompt + '\nStrictly keep each price within the budget band.', minBudget, maxBudget);
+    // Strict in-band filter; allow fewer than 5 if needed (better than junk)
+    suggestions = suggestions.filter(s => s.priceUsd >= minBudget && s.priceUsd <= maxBudget).slice(0, 5);
+
+    if (!suggestions.length) {
+      return NextResponse.json({ error: 'No suggestions returned in band.' }, { status: 502 });
     }
 
-    // Map to legacy shape; allow fewer than 5 if that’s what’s in-band
-    const out = banded
-      .filter(s => isAllowlisted(s.retailer))
-      .map(s => ({
-        name: s.title,
-        estimated_price: s.priceBand,
-        store_or_brand: s.retailer,
-        description: s.reason,
-        image_url: retailerLogo(),
-        suggested_platform: s.retailer,
-        search_query: s.query,
-        one_liner: s.oneLiner,
-        id_hint: s.idHint,
-        url: buildRetailerLink(s.retailer as any, s.query, s.idHint),
-      }))
-      .slice(0, 5);
-
-    if (!out.length) {
-      return NextResponse.json({ error: 'No suggestions returned from Gemini.' }, { status: 502 });
-    }
+    const out = suggestions.map(s => ({
+      name: s.title,
+      estimated_price: s.priceBand,
+      store_or_brand: 'amazon.com',
+      description: s.reason,
+      image_url: '/retailers/generic-store.svg',
+      suggested_platform: 'amazon.com',
+      search_query: s.query,
+      one_liner: s.oneLiner,
+      id_hint: s.idHint,
+      url: buildRetailerLink('amazon.com', s.query, s.idHint),
+    }));
 
     return NextResponse.json(out);
   } catch (err) {

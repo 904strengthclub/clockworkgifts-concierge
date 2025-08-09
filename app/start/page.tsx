@@ -1,14 +1,15 @@
+// /app/start/page.tsx
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Button from '@/components/Button';
 
 type ChatMsg = { from: 'bot' | 'user'; text: string };
 
 export default function StartPage() {
   const router = useRouter();
 
-  // chat & flow state
   const [step, setStep] = useState(0);
   const [messages, setMessages] = useState<ChatMsg[]>([
     { from: 'bot', text: "Hey! I’m your Clockwork gift concierge. Who are we shopping for?" },
@@ -17,26 +18,24 @@ export default function StartPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [botTyping, setBotTyping] = useState(false);
 
-  // collected form fields (match API keys/expectations)
   const [name, setName] = useState('');
   const [relationship, setRelationship] = useState('');
   const [occasion, setOccasion] = useState('');
   const [date, setDate] = useState('');        // MM-DD
-  const [about, setAbout] = useState('');      // hobbies/personality
-  const [budgetDisplay, setBudgetDisplay] = useState(''); // raw input (string)
-  const [targetBudget, setTargetBudget] = useState<number | null>(null); // numeric for server
+  const [about, setAbout] = useState('');
+  const [budgetDisplay, setBudgetDisplay] = useState('');
+  const [targetBudget, setTargetBudget] = useState<number | null>(null);
 
-  // script of questions
   const questions = [
     { prompt: "What’s the recipient’s name?", setter: setName, key: 'name' as const, type: 'text' as const },
     { prompt: "Your relationship to them? (e.g., wife, boyfriend, friend, child)", setter: setRelationship, key: 'relationship' as const, type: 'text' as const },
-    { prompt: "What’s the occasion? (birthday, anniversary, promotion, etc.)", setter: setOccasion, key: 'occasion' as const, type: 'text' as const },
+    { prompt: "What’s the occasion? (birthday, anniversary, Christmas, etc.)", setter: setOccasion, key: 'occasion' as const, type: 'text' as const },
     { prompt: "When is it? (MM-DD)", setter: setDate, key: 'date' as const, type: 'text' as const },
     { prompt: "Tell me about them—hobbies, passions, vibe. Anything that helps.", setter: setAbout, key: 'about' as const, type: 'textarea' as const },
     { prompt: "Target budget in USD (numbers only, e.g., 300).", setter: setBudgetDisplay, key: 'budget' as const, type: 'number' as const },
   ] as const;
 
-  // auto-grow textarea for the “about” step
+  // auto-grow textarea
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => {
     if (questions[step].type === 'textarea' && textareaRef.current) {
@@ -74,7 +73,6 @@ export default function StartPage() {
       setTargetBudget(Math.round(num));
     }
 
-    // commit answer
     q.setter(val);
     setMessages((prev) => [...prev, { from: 'user', text: val }]);
     return true;
@@ -86,7 +84,6 @@ export default function StartPage() {
 
     if (!validateAndCommit(val)) return;
 
-    // advance or submit
     if (step < questions.length - 1) {
       setStep((s) => s + 1);
       setInputValue('');
@@ -100,13 +97,8 @@ export default function StartPage() {
     setIsSubmitting(true);
     setMessages((prev) => [...prev, { from: 'bot', text: 'Finding gift ideas…' }]);
 
-    // build the payload the API expects
     const surveySummary = {
-      name,
-      relationship,
-      occasion,
-      date, // MM-DD; server converts to ISO year internally for context
-      about,
+      name, relationship, occasion, date, about,
       budget_range: budgetDisplay || (targetBudget ? `$${targetBudget}` : ''),
       target_budget_usd: targetBudget ?? null,
     };
@@ -124,24 +116,17 @@ export default function StartPage() {
         throw new Error('No valid suggestions.');
       }
 
-      // Persist suggestions for /results
       localStorage.setItem('clockwork_suggestions', JSON.stringify(suggestions));
-      // Persist last form for “Load 5 more” follow-up calls on /results
       localStorage.setItem('clockwork_last_form', JSON.stringify(surveySummary));
-
       router.push('/results');
     } catch (err) {
-      console.error('Submit error:', err);
-      setMessages((prev) => [
-        ...prev,
-        { from: 'bot', text: 'Hit a snag. Tap Send again in a few seconds.' },
-      ]);
+      setMessages((prev) => [...prev, { from: 'bot', text: 'Hit a snag. Tap Send again in a few seconds.' }]);
       setIsSubmitting(false);
     }
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4">
+    <main className="min-h-screen grid place-items-center p-4">
       <div className="w-full max-w-xl">
         <h1 className="text-2xl font-bold mb-4 text-center">Clockwork Gifts Concierge</h1>
 
@@ -166,10 +151,7 @@ export default function StartPage() {
 
           {!isSubmitting && (
             <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (inputValue.trim()) handleNext();
-              }}
+              onSubmit={(e) => { e.preventDefault(); if (inputValue.trim()) handleNext(); }}
               className="flex gap-2 mt-4 items-end"
             >
               {questions[step].type === 'textarea' ? (
@@ -179,7 +161,7 @@ export default function StartPage() {
                   onChange={(e) => setInputValue(e.target.value)}
                   className="flex-1 border border-gray-300 p-3 rounded-lg resize-none overflow-hidden"
                   placeholder="Type your answer…"
-                  rows={3}
+                  rows={4} // default taller
                 />
               ) : (
                 <input
@@ -191,12 +173,7 @@ export default function StartPage() {
                   placeholder={questions[step].key === 'date' ? 'MM-DD' : 'Type your answer…'}
                 />
               )}
-              <button
-                type="submit"
-                className="bg-black text-white px-4 py-2 rounded-lg"
-              >
-                Send
-              </button>
+              <Button type="submit">Send</Button>
             </form>
           )}
 

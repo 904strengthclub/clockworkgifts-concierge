@@ -1,6 +1,8 @@
+// /app/results/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
+import Button from '@/components/Button';
 
 type GiftSuggestion = {
   name: string;
@@ -60,11 +62,6 @@ export default function ResultsPage() {
     }
   }
 
-  function feedback(vote: 'up' | 'down') {
-    console.log('feedback', vote);
-    // TODO: send to /api/feedback with current session id
-  }
-
   if (suggestions === null) {
     return (
       <main style={{ padding: 40, fontFamily: 'system-ui, sans-serif' }}>
@@ -75,52 +72,46 @@ export default function ResultsPage() {
   }
 
   return (
-    <main style={{ padding: 40, fontFamily: 'system-ui, sans-serif' }}>
-      <h1>Gift Suggestions</h1>
-
-      <div style={{ margin: '12px 0 24px' }}>
-        <button
-          onClick={() => { try { localStorage.removeItem('clockwork_suggestions'); } catch {} window.location.href = '/start'; }}
-          style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer' }}
-        >
-          Start over
-        </button>
+    <main className="p-10 font-sans">
+      <div className="flex items-center gap-3">
+        <h1 className="text-2xl font-bold">Gift Suggestions</h1>
+        <div className="ml-auto">
+          <Button
+            onClick={() => { try { localStorage.removeItem('clockwork_suggestions'); } catch {} window.location.href = '/start'; }}
+          >
+            Start over
+          </Button>
+        </div>
       </div>
 
       {suggestions.length === 0 ? (
-        <p>No suggestions yet. Try running the form again.</p>
+        <p className="mt-6">No suggestions yet. Try running the form again.</p>
       ) : (
         <>
-          <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: 16 }}>
+          <ul className="mt-6 grid gap-4">
             {suggestions.map((gift, i) => {
               const href =
                 gift.url ||
                 `/api/go?u=${encodeURIComponent(
-                  gift.suggested_platform
-                    ? `https://${gift.suggested_platform}/search?q=${encodeURIComponent(gift.search_query || gift.name)}`
-                    : `https://www.google.com/search?q=${encodeURIComponent(`site:${gift.store_or_brand} ${gift.search_query || gift.name}`)}`
-                )}&r=${encodeURIComponent(gift.suggested_platform || gift.store_or_brand)}`;
+                  `https://www.amazon.com/s?k=${encodeURIComponent(gift.search_query || gift.name)}`
+                )}&r=amazon.com`;
 
               return (
-                <li key={`${gift.name}-${i}`}
-                    style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: 16, display: 'grid', gridTemplateColumns: '80px 1fr', gap: 16, alignItems: 'center' }}>
-                  <div style={{ width: 80, height: 80, display: 'grid', placeItems: 'center' }}>
-                    <div style={{ width: 60, height: 60, borderRadius: 8, background: '#f3f4f6' }} />
+                <li key={`${gift.name}-${i}`} className="border border-gray-200 rounded-xl p-4 grid grid-cols-[80px,1fr] gap-4 items-center">
+                  <div className="w-20 h-20 grid place-items-center">
+                    <div className="w-[60px] h-[60px] rounded-md bg-gray-100" />
                   </div>
                   <div>
-                    <h3 style={{ margin: '0 0 6px' }}>{gift.name}</h3>
-                    {gift.one_liner && <p style={{ margin: '0 0 6px', fontStyle: 'italic', color: '#374151' }}>{gift.one_liner}</p>}
-                    <p style={{ margin: '0 0 8px', color: '#374151' }}>{gift.description}</p>
-                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 14, color: '#4b5563' }}>
+                    <h3 className="font-semibold mb-1">{gift.name}</h3>
+                    {gift.one_liner && <p className="italic text-gray-700 mb-1">{gift.one_liner}</p>}
+                    <p className="text-gray-700 mb-2">{gift.description}</p>
+                    <div className="flex gap-3 text-sm text-gray-600 flex-wrap">
                       <span><strong>Price:</strong> {gift.estimated_price}</span>
                       <span>•</span>
-                      <span><strong>Store:</strong> {gift.store_or_brand}</span>
+                      <span><strong>Store:</strong> Amazon</span>
                     </div>
-                    <div style={{ marginTop: 12 }}>
-                      <a href={href} target="_blank" rel="noopener noreferrer"
-                         style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 10, background: 'black', color: 'white', textDecoration: 'none', fontWeight: 600 }}>
-                        View Gift
-                      </a>
+                    <div className="mt-3">
+                      <Button href={href}>View on Amazon</Button>
                     </div>
                   </div>
                 </li>
@@ -128,18 +119,10 @@ export default function ResultsPage() {
             })}
           </ul>
 
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 16 }}>
-            <button
-              onClick={loadMore}
-              disabled={loadsLeft <= 0 || loadingMore}
-              style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #d1d5db', background: '#fff', cursor: loadsLeft <= 0 ? 'not-allowed' : 'pointer' }}
-            >
+          <div className="flex items-center gap-3 mt-4">
+            <Button onClick={loadMore} disabled={loadsLeft <= 0 || loadingMore} className={loadsLeft <= 0 ? 'opacity-50' : ''}>
               {loadingMore ? 'Loading…' : `Load 5 more ideas (${loadsLeft} left)`}
-            </button>
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-              <button onClick={() => feedback('up')} title="Helpful" style={{ border: '1px solid #d1d5db', borderRadius: 8, padding: '6px 10px', background: '#fff' }}>👍</button>
-              <button onClick={() => feedback('down')} title="Not helpful" style={{ border: '1px solid #d1d5db', borderRadius: 8, padding: '6px 10px', background: '#fff' }}>👎</button>
-            </div>
+            </Button>
           </div>
         </>
       )}
