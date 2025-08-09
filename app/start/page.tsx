@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 type ChatMsg = { from: 'bot' | 'user'; text: string };
@@ -8,6 +8,7 @@ type ChatMsg = { from: 'bot' | 'user'; text: string };
 export default function StartPage() {
   const router = useRouter();
 
+  // chat & flow state
   const [step, setStep] = useState(0);
   const [messages, setMessages] = useState<ChatMsg[]>([
     { from: 'bot', text: "Hey! I’m your Clockwork gift concierge. Who are we shopping for?" },
@@ -16,14 +17,16 @@ export default function StartPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [botTyping, setBotTyping] = useState(false);
 
+  // collected form fields (match API keys/expectations)
   const [name, setName] = useState('');
   const [relationship, setRelationship] = useState('');
   const [occasion, setOccasion] = useState('');
-  const [date, setDate] = useState(''); // MM-DD
-  const [about, setAbout] = useState(''); // hobbies / personality
-  const [budgetDisplay, setBudgetDisplay] = useState('');
-  const [targetBudget, setTargetBudget] = useState<number | null>(null);
+  const [date, setDate] = useState('');        // MM-DD
+  const [about, setAbout] = useState('');      // hobbies/personality
+  const [budgetDisplay, setBudgetDisplay] = useState(''); // raw input (string)
+  const [targetBudget, setTargetBudget] = useState<number | null>(null); // numeric for server
 
+  // script of questions
   const questions = [
     { prompt: "What’s the recipient’s name?", setter: setName, key: 'name' as const, type: 'text' as const },
     { prompt: "Your relationship to them? (e.g., wife, boyfriend, friend, child)", setter: setRelationship, key: 'relationship' as const, type: 'text' as const },
@@ -33,49 +36,59 @@ export default function StartPage() {
     { prompt: "Target budget in USD (numbers only, e.g., 300).", setter: setBudgetDisplay, key: 'budget' as const, type: 'number' as const },
   ] as const;
 
+  // auto-grow textarea for the “about” step
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => {
-    if (textareaRef.current) {
+    if (questions[step].type === 'textarea' && textareaRef.current) {
       textareaRef.current.style.height = '0px';
       textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
     }
   }, [inputValue, step]);
 
-  function nextBot(prompt: string) {
+  function nextBot(line: string) {
     setBotTyping(true);
     setTimeout(() => {
-      setMessages(prev => [...prev, { from: 'bot', text: prompt }]);
+      setMessages((prev) => [...prev, { from: 'bot', text: line }]);
       setBotTyping(false);
     }, 350);
   }
 
-  function handleNext() {
+  function validateAndCommit(val: string) {
     const q = questions[step];
-    const val = inputValue.trim();
-    if (!val) return;
 
     if (q.key === 'date') {
       if (!/^\d{2}-\d{2}$/.test(val)) {
-        setMessages(prev => [...prev, { from: 'bot', text: "Format as MM-DD (e.g., 12-15)." }]);
+        setMessages((prev) => [...prev, { from: 'bot', text: 'Format as MM-DD (e.g., 12-15).' }]);
         setInputValue('');
-        return;
+        return false;
       }
     }
+
     if (q.key === 'budget') {
       const num = Number(val.replace(/[^\d.]/g, ''));
       if (!Number.isFinite(num) || num <= 0) {
-        setMessages(prev => [...prev, { from: 'bot', text: 'Please enter a positive number like 300.' }]);
+        setMessages((prev) => [...prev, { from: 'bot', text: 'Please enter a positive number like 300.' }]);
         setInputValue('');
-        return;
+        return false;
       }
       setTargetBudget(Math.round(num));
     }
 
+    // commit answer
     q.setter(val);
-    setMessages(prev => [...prev, { from: 'user', text: val }]);
+    setMessages((prev) => [...prev, { from: 'user', text: val }]);
+    return true;
+  }
 
+  function handleNext() {
+    const val = inputValue.trim();
+    if (!val) return;
+
+    if (!validateAndCommit(val)) return;
+
+    // advance or submit
     if (step < questions.length - 1) {
-      setStep(s => s + 1);
+      setStep((s) => s + 1);
       setInputValue('');
       nextBot(questions[step + 1].prompt);
     } else {
@@ -85,9 +98,14 @@ export default function StartPage() {
 
   async function handleSubmit() {
     setIsSubmitting(true);
-    setMessages(prev => [...prev, { from: 'bot', text: 'Finding gift ideas…' }]);
+    setMessages((prev) => [...prev, { from: 'bot', text: 'Finding gift ideas…' }]);
+
+    // build the payload the API expects
     const surveySummary = {
-      name, relationship, occasion, date,
+      name,
+      relationship,
+      occasion,
+      date, // MM-DD; server converts to ISO year internally for context
       about,
       budget_range: budgetDisplay || (targetBudget ? `$${targetBudget}` : ''),
       target_budget_usd: targetBudget ?? null,
@@ -100,15 +118,24 @@ export default function StartPage() {
         body: JSON.stringify({ surveySummary }),
       });
       if (!res.ok) throw new Error(`API error: ${res.status}`);
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        localStorage.setItem('clockwork_suggestions', JSON.stringify(data));
-        router.push('/results');
-      } else {
+
+      const suggestions = await res.json();
+      if (!Array.isArray(suggestions) || suggestions.length === 0) {
         throw new Error('No valid suggestions.');
       }
-    } catch (e) {
-      setMessages(prev => [...prev, { from: 'bot', text: 'Hit a snag. Tap Send again in a few seconds.' }]);
+
+      // Persist suggestions for /results
+      localStorage.setItem('clockwork_suggestions', JSON.stringify(suggestions));
+      // Persist last form for “Load 5 more” follow-up calls on /results
+      localStorage.setItem('clockwork_last_form', JSON.stringify(surveySummary));
+
+      router.push('/results');
+    } catch (err) {
+      console.error('Submit error:', err);
+      setMessages((prev) => [
+        ...prev,
+        { from: 'bot', text: 'Hit a snag. Tap Send again in a few seconds.' },
+      ]);
       setIsSubmitting(false);
     }
   }
@@ -117,7 +144,8 @@ export default function StartPage() {
     <main className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-xl">
         <h1 className="text-2xl font-bold mb-4 text-center">Clockwork Gifts Concierge</h1>
-        <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+
+        <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
           <div className="space-y-3">
             {messages.map((m, i) => (
               <div
@@ -138,7 +166,10 @@ export default function StartPage() {
 
           {!isSubmitting && (
             <form
-              onSubmit={(e) => { e.preventDefault(); if (inputValue.trim()) handleNext(); }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (inputValue.trim()) handleNext();
+              }}
               className="flex gap-2 mt-4 items-end"
             >
               {questions[step].type === 'textarea' ? (
@@ -146,21 +177,26 @@ export default function StartPage() {
                   ref={textareaRef}
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
-                  className="flex-1 border border-gray-300 p-3 rounded-md resize-none overflow-hidden"
+                  className="flex-1 border border-gray-300 p-3 rounded-lg resize-none overflow-hidden"
                   placeholder="Type your answer…"
                   rows={3}
                 />
               ) : (
                 <input
                   type={questions[step].key === 'budget' ? 'number' : 'text'}
+                  inputMode={questions[step].key === 'budget' ? 'numeric' : 'text'}
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
-                  className="flex-1 border border-gray-300 p-3 rounded-md"
-                  placeholder="Type your answer…"
-                  inputMode={questions[step].key === 'budget' ? 'numeric' : 'text'}
+                  className="flex-1 border border-gray-300 p-3 rounded-lg"
+                  placeholder={questions[step].key === 'date' ? 'MM-DD' : 'Type your answer…'}
                 />
               )}
-              <button type="submit" className="bg-black text-white px-4 py-2 rounded-md">Send</button>
+              <button
+                type="submit"
+                className="bg-black text-white px-4 py-2 rounded-lg"
+              >
+                Send
+              </button>
             </form>
           )}
 

@@ -1,48 +1,47 @@
 // /lib/affiliateHelpers.ts
 import { isAllowlisted, buildRetailerLink, retailerLogo } from '@/lib/retailers';
 
-// The "legacy" shape your UI expects on /results
+// Shape your results page expects
 export interface LegacySuggestion {
   name: string;
   estimated_price: string;
   store_or_brand: string;     // retailer domain (e.g., "amazon.com")
   description: string;
-  image_url?: string;         // we'll default to retailer badge if missing
-  suggested_platform?: string;// retailer domain (same as store_or_brand in our pipeline)
+  image_url?: string;         // we’ll default to a generic placeholder
+  suggested_platform?: string;// retailer domain (same as store_or_brand)
   search_query?: string;      // human-searchable terms
   one_liner?: string;
   id_hint?: string;
-  url?: string;               // final CTA link via /api/go
+  url?: string;               // final CTA via /api/go
 }
 
 /**
- * Ensures each suggestion has:
- * - a deterministic, affiliateable `url` built server-side
- * - a stable `image_url` (retailer badge) if missing
- * - retailer domain constrained to your allowlist
+ * Ensure each suggestion has:
+ * - deterministic, affiliate-safe `url` (built server-side)
+ * - stable `image_url` (generic placeholder)
+ * - normalized retailer domain
  */
 export async function appendAffiliateLinks(
   suggestions: LegacySuggestion[]
 ): Promise<LegacySuggestion[]> {
   return suggestions.map((s) => {
-    const retailer =
+    const retailerRaw =
       (s.suggested_platform || s.store_or_brand || '').toLowerCase().trim();
 
-    const safeRetailer = isAllowlisted(retailer) ? retailer : (s.store_or_brand || '').toLowerCase().trim();
+    const safeRetailer =
+      isAllowlisted(retailerRaw) ? retailerRaw : (s.store_or_brand || '').toLowerCase().trim();
 
-    // Build URL deterministically (never trust model URLs)
+    // Build URL deterministically; never trust model URLs
     const url = isAllowlisted(safeRetailer)
-      ? buildRetailerLink(safeRetailer as any, s.search_query || s.name, s.id_hint)
+      ? buildRetailerLink(safeRetailer, s.search_query || s.name, s.id_hint)
       : `/api/go?u=${encodeURIComponent(
           `https://www.google.com/search?q=site:${safeRetailer || 'amazon.com'}+${encodeURIComponent(
             s.search_query || s.name
           )}`
         )}&r=${encodeURIComponent(safeRetailer || 'amazon.com')}`;
 
-    // Ensure we always have a stable image (retailer badge)
-    const img = s.image_url && s.image_url.length > 0
-      ? s.image_url
-      : retailerLogo(safeRetailer || 'generic');
+    // Always use our generic placeholder to avoid trademark/logo issues
+    const img = retailerLogo(); // <-- no args now
 
     return {
       ...s,
