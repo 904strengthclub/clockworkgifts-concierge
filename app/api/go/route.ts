@@ -1,30 +1,59 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { platformSearchMap } from '@/lib/platformSearchMap';
+// /app/api/go/route.ts
+import { NextResponse } from 'next/server';
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = req.nextUrl;
+const TAGS: Record<string, string | undefined> = {
+  "amazon.com": "clockworkgift-20",
+  // add others here if you have them
+};
 
-  const giftId = searchParams.get('giftId') || 'Gift';
-  const rawUrl = searchParams.get('url');
-  const platform = searchParams.get('platform');
-  const query = searchParams.get('query');
+const ALLOW = new Set(Object.keys(TAGS).concat([
+  // allow click-through even without a tag
+  "etsy.com",
+  "uncommongoods.com",
+  "crateandbarrel.com",
+  "nordstrom.com",
+  "anthropologie.com",
+  "food52.com",
+  "thegrommet.com",
+  "markandgraham.com",
+  "saksfifthavenue.com",
+  "williams-sonoma.com",
+  "cratejoy.com",
+  "cultgaia.com",
+  "theline.com",
+  "goop.com",
+  "bliss.com",
+  "fairtradewinds.net",
+  "tenthousandvillages.com",
+  "sokoglam.com",
+  "lovevery.com",
+  "packedwithpurpose.gifts",
+  "masterclass.com",
+  "fourseasons.com",
+  "boxycharm.com",
+  "giftory.com",
+  "hatch.co",
+  "paperlesspost.com",
+]));
 
-  let redirectUrl: string | null = null;
-
-  // First, check if a valid direct URL was provided
-  if (rawUrl && rawUrl !== 'undefined' && /^https?:\/\//.test(rawUrl)) {
-    redirectUrl = rawUrl;
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const u = searchParams.get('u'); // destination (encoded)
+  const r = searchParams.get('r'); // retailer domain
+  if (!u || !r || !ALLOW.has(r)) {
+    return NextResponse.redirect('https://clockworkgifts.com/disclaimer');
   }
-  // If not, try building one from platform + query
-  else if (platform && query && platformSearchMap[platform]) {
-    redirectUrl = platformSearchMap[platform](query);
+
+  const url = new URL(decodeURIComponent(u));
+
+  // Attach affiliate tags where we have them
+  if (r === 'amazon.com') {
+    if (!url.searchParams.get('tag')) {
+      url.searchParams.set('tag', TAGS['amazon.com']!);
+    }
   }
 
-  // If we still don't have a valid URL, error out
-  if (!redirectUrl) {
-    return new NextResponse(`❌ Invalid redirect URL for gift: ${giftId}`, { status: 400 });
-  }
+  // (Optional) You can add a quick HEAD check + fallback to site search here if desired.
 
-  console.log(`[Redirecting] ${giftId} → ${redirectUrl}`);
-  return NextResponse.redirect(redirectUrl);
+  return NextResponse.redirect(url.toString(), 302);
 }

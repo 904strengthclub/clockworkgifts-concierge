@@ -1,57 +1,69 @@
-// /app/api/generate-suggestions/route.ts
+// /app/api/generate-suggestions/route.ts  (replace the previous patched version)
 import { NextResponse } from 'next/server';
-import { generateGiftIdeas } from '@/lib/gemini';
-import { appendAffiliateLinks } from '@/lib/affiliateHelpers';
+import { generateGiftIdeasStructured } from '@/lib/gemini';
+import { isAllowlisted, buildRetailerLink, retailerLogo } from '@/lib/retailers';
+
+type SurveySummary = {
+  name: string;
+  relationship: string;
+  occasion: string;
+  date: string;
+  budget_range?: string;
+  target_budget_usd?: number | null; // NEW
+};
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { surveySummary, seenGiftNames = [] } = body;
+    const body = await req.json().catch(() => ({} as any));
+    const { surveySummary, seenGiftNames = [] } = body as {
+      surveySummary: SurveySummary;
+      seenGiftNames?: string[];
+    };
 
-    const prompt = `
-      You are Clockwork — a friendly and thoughtful AI gift concierge.
-
-      Your job is to help users find the perfect gift by generating 5 creative gift ideas based on their answers.
-
-      Each idea must:
-      - Fall within the budget: ${surveySummary.budget_range}
-      - Be thoughtful and connected to the recipient’s interests and relationship
-      - Be available online with clear delivery options (ideally within 2 weeks)
-      - Come from a diverse mix of stores or brands (not just Amazon)
-      - Avoid suggestions already shown to the user: ${seenGiftNames.join(', ') || 'None'}
-
-      Crucial Instruction: DO NOT include product links. Instead, for each gift, include:
-      - suggested_platform (e.g., Amazon, Etsy, REI, Nordstrom, Crate and Barrel, etc.)
-      - search_query (short phrase to find this gift online)
-
-      Return exactly 5 gift suggestions as a JSON array.
-
-      Output ONLY the raw JSON. Do not include any commentary, markdown, or explanation.
-
-      Each gift object must include:
-        - name (string)
-        - estimated_price (string)
-        - store_or_brand (string)
-        - description (string)
-        - image_url (string)
-        - suggested_platform (string)
-        - search_query (string)
-
-      Recipient Profile:
-      ${JSON.stringify(surveySummary, null, 2)}
-    `;
-
-    const parsedSuggestions = await generateGiftIdeas(prompt);
-
-    if (!Array.isArray(parsedSuggestions) || parsedSuggestions.length === 0) {
-      return NextResponse.json(
-        { error: 'No suggestions returned from Gemini.' },
-        { status: 502 }
-      );
+    if (!surveySummary?.name || !surveySummary?.relationship || !surveySummary?.occasion || !surveySummary?.date) {
+      return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
     }
 
-    const suggestionsWithAffiliates = await appendAffiliateLinks(parsedSuggestions);
-    return NextResponse.json(suggestionsWithAffiliates);
+    // Budget band (+0% / −15%). If no numeric given, default to a broad band.
+    const target = Number(surveySummary.target_budget_usd ?? NaN);
+    const maxBudget = isFinite(target) && target > 0 ? Math.round(target) : 500;
+    const minBudget = isFinite(target) && target > 0 ? Math.round(target * 0.85) : 10;
+
+    const userPrompt = `
+Recipient: ${surveySummary.name} (${surveySummary.relationship})
+Occasion: ${surveySummary.occasion} on ${surveySummary.date}
+Target budget: ${isFinite(target) ? `$${maxBudget} (accept $${minBudget}–$${maxBudget})` : (surveySummary.budget_range || 'unspecified')}
+Avoid previously shown items: ${seenGiftNames.length ? seenGiftNames.join(', ') : 'None'}
+`.trim();
+
+    const raw = await generateGiftIdeasStructured(userPrompt, minBudget, maxBudget);
+    if (!Array.isArray(raw) || raw.length === 0) {
+      return NextResponse.json({ error: 'No suggestions returned from Gemini.' }, { status: 502 });
+    }
+
+    // Enforce budget band server-side as well (belt & suspenders)
+    const banded = raw.filter(s => s.priceUsd >= minBudget && s.priceUsd <= maxBudget);
+
+    const out = banded
+      .filter(s => isAllowlisted(s.retailer))
+      .slice(0, 5)
+      .map(s => {
+        const url = buildRetailerLink(s.retailer as any, s.query, s.idHint);
+        return {
+          name: s.title,
+          estimated_price: s.priceBand,
+          store_or_brand: s.retailer,
+          description: s.reason,
+          image_url: retailerLogo(s.retailer),
+          suggested_platform: s.retailer,
+          search_query: s.query,
+          one_liner: s.oneLiner,
+          id_hint: s.idHint,
+          url, // for CTA
+        };
+      });
+
+    return NextResponse.json(out);
   } catch (err) {
     console.error('API Error:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

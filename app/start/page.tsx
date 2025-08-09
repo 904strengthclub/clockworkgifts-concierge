@@ -3,72 +3,63 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+type ChatMsg = { from: 'bot' | 'user'; text: string };
+
 export default function StartPage() {
   const router = useRouter();
 
-  const [step, setStep] = useState(0);
-  const [messages, setMessages] = useState([
+  // chat flow state
+  const [step, setStep] = useState<number>(0);
+  const [messages, setMessages] = useState<ChatMsg[]>([
     { from: 'bot', text: "Hey there! I'm your Clockwork gift concierge. Who are we shopping for today?" },
   ]);
-  const [inputValue, setInputValue] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [inputValue, setInputValue] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const [recipientName, setRecipientName] = useState('');
-  const [relationship, setRelationship] = useState('');
-  const [occasionType, setOccasionType] = useState('');
-  const [hobbiesStyle, setHobbiesStyle] = useState('');
-  const [budgetRange, setBudgetRange] = useState('');
+  // form fields (match API keys)
+  const [name, setName] = useState<string>('');
+  const [relationship, setRelationship] = useState<string>('');
+  const [occasion, setOccasion] = useState<string>('');
+  const [date, setDate] = useState<string>(''); // YYYY-MM-DD
+  const [budgetRange, setBudgetRange] = useState<string>(''); // free text to show user
+  const [targetBudget, setTargetBudget] = useState<number | null>(null); // numeric for server banding
 
+  // question script
   const questions = [
-    {
-      prompt: "What’s the recipient’s name?",
-      setter: setRecipientName,
-    },
+    { prompt: "What’s the recipient’s name?", setter: setName, key: 'name' as const },
     {
       prompt: "What’s your relationship to them? (e.g., wife, boyfriend, friend, child)",
       setter: setRelationship,
+      key: 'relationship' as const,
     },
     {
       prompt: "What kind of occasion is this for? (birthday, anniversary, promotion, etc.)",
-      setter: setOccasionType,
+      setter: setOccasion,
+      key: 'occasion' as const,
     },
     {
-      prompt: "What are their hobbies, interests, or general gift style?",
-      setter: setHobbiesStyle,
+      prompt: "When is the occasion? (YYYY-MM-DD)",
+      setter: setDate,
+      key: 'date' as const,
     },
     {
-      prompt: "What’s your gift budget?",
+      prompt: "What’s your target budget in USD? (e.g., 300)",
       setter: setBudgetRange,
+      key: 'budget_range' as const,
     },
-  ];
+  ] as const;
 
-  const handleNext = () => {
-    const currentQ = questions[step];
-    currentQ.setter(inputValue);
-    setMessages(prev => [...prev, { from: 'user', text: inputValue }]);
-
-    if (step < questions.length - 1) {
-      const nextQ = questions[step + 1];
-      setTimeout(() => {
-        setMessages(prev => [...prev, { from: 'bot', text: nextQ.prompt }]);
-        setStep(step + 1);
-        setInputValue('');
-      }, 500);
-    } else {
-      handleSubmit();
-    }
-  };
-
-  const handleSubmit = async () => {
+  async function handleSubmit() {
     setIsSubmitting(true);
     setMessages(prev => [...prev, { from: 'bot', text: 'Finding the perfect gift ideas for you...' }]);
 
     const surveySummary = {
-      recipient_name: recipientName,
+      name,
       relationship,
-      occasion_type: occasionType,
-      hobbies_style: hobbiesStyle,
-      budget_range: budgetRange,
+      occasion,
+      date,
+      budget_range: budgetRange || (targetBudget ? `$${targetBudget}` : ''),
+      target_budget_usd: targetBudget ?? null,
     };
 
     try {
@@ -78,8 +69,10 @@ export default function StartPage() {
         body: JSON.stringify({ surveySummary }),
       });
 
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+
       const suggestions = await res.json();
-      if (suggestions && Array.isArray(suggestions)) {
+      if (Array.isArray(suggestions) && suggestions.length > 0) {
         localStorage.setItem('clockwork_suggestions', JSON.stringify(suggestions));
         router.push('/results');
       } else {
@@ -90,11 +83,58 @@ export default function StartPage() {
       setMessages(prev => [...prev, { from: 'bot', text: 'Oops! Something went wrong. Please try again.' }]);
       setIsSubmitting(false);
     }
-  };
+  }
+
+  function handleNext() {
+    const currentQ = questions[step];
+    const value = inputValue.trim();
+    if (!value) return;
+
+    // validate date format
+    if (currentQ.key === 'date') {
+      const isoLike = /^\d{4}-\d{2}-\d{2}$/;
+      if (!isoLike.test(value)) {
+        setMessages(prev => [
+          ...prev,
+          { from: 'bot', text: "Could you format the date like YYYY-MM-DD? (e.g., 2025-12-15)" },
+        ]);
+        setInputValue('');
+        return;
+      }
+    }
+
+    // validate + parse budget number
+    if (currentQ.key === 'budget_range') {
+      const num = Number(value.replace(/[^\d.]/g, ''));
+      if (!Number.isFinite(num) || num <= 0) {
+        setMessages(prev => [...prev, { from: 'bot', text: 'Please enter a positive number like 300.' }]);
+        setInputValue('');
+        return;
+      }
+      setTargetBudget(Math.round(num));
+    }
+
+    // commit answer
+    currentQ.setter(value);
+    setMessages(prev => [...prev, { from: 'user', text: value }]);
+
+    // next step or submit
+    if (step < questions.length - 1) {
+      const nextQ = questions[step + 1];
+      setTimeout(() => {
+        setMessages(prev => [...prev, { from: 'bot', text: nextQ.prompt }]);
+        setStep(s => s + 1);
+        setInputValue('');
+      }, 300);
+    } else {
+      handleSubmit();
+    }
+  }
 
   return (
     <main className="max-w-xl mx-auto p-6 font-sans">
       <h1 className="text-2xl font-bold mb-6">Clockwork Gifts Concierge</h1>
+
       <div className="space-y-4">
         {messages.map((msg, i) => (
           <div
