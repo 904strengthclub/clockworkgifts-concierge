@@ -11,34 +11,60 @@ export default function StartPage() {
 
   const [step, setStep] = useState(0);
   const [messages, setMessages] = useState<ChatMsg[]>([
-    { from: 'bot', text: "Hey! I’m your Clockwork gift concierge. Who are we shopping for?" },
+    { from: 'bot', text: "Hey! I’m your Clockwork gift concierge. Who are you buying this for? (e.g., my wife, son, coworker)" },
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [botTyping, setBotTyping] = useState(false);
 
-  const [name, setName] = useState('');
+  // New survey fields
   const [relationship, setRelationship] = useState('');
-  const [occasion, setOccasion] = useState('');
-  const [date, setDate] = useState('');        // MM-DD
   const [about, setAbout] = useState('');
-  const [budgetDisplay, setBudgetDisplay] = useState('');
-  const [targetBudget, setTargetBudget] = useState<number | null>(null);
+  const [smileScene, setSmileScene] = useState('');
+  const [talkHours, setTalkHours] = useState('');
+  const [budget, setBudget] = useState<number | null>(null);
 
   const questions = [
-    { prompt: "What’s the recipient’s name?", setter: setName, key: 'name' as const, type: 'text' as const },
-    { prompt: "Your relationship to them? (e.g., wife, boyfriend, friend, child)", setter: setRelationship, key: 'relationship' as const, type: 'text' as const },
-    { prompt: "What’s the occasion? (birthday, anniversary, Christmas, etc.)", setter: setOccasion, key: 'occasion' as const, type: 'text' as const },
-    { prompt: "When is it? (MM-DD)", setter: setDate, key: 'date' as const, type: 'text' as const },
-    { prompt: "Tell me about them—hobbies, passions, vibe. Anything that helps.", setter: setAbout, key: 'about' as const, type: 'textarea' as const },
-    { prompt: "Target budget in USD (numbers only, e.g., 300).", setter: setBudgetDisplay, key: 'budget' as const, type: 'number' as const },
+    {
+      prompt: "Who are you buying this for? (e.g., my wife, son, coworker)",
+      setter: (v: string) => setRelationship(v),
+      key: 'relationship' as const,
+      type: 'text' as const,
+    },
+    {
+      prompt: "Tell us a little about them—hobbies, interests, or anything that would help us choose the perfect gift.",
+      setter: (v: string) => setAbout(v),
+      key: 'about' as const,
+      type: 'textarea' as const,
+    },
+    {
+      prompt: "When you picture them smiling, what are they doing?",
+      setter: (v: string) => setSmileScene(v),
+      key: 'smile_scene' as const,
+      type: 'textarea' as const,
+    },
+    {
+      prompt: "What’s something they could talk about for hours without getting bored?",
+      setter: (v: string) => setTalkHours(v),
+      key: 'talk_hours' as const,
+      type: 'textarea' as const,
+    },
+    {
+      prompt: "What’s your gift budget? (numbers only, e.g., 300)",
+      setter: (v: string) => {
+        const n = Number((v || '').toString().replace(/[^\d.]/g, ''));
+        setBudget(Number.isFinite(n) && n > 0 ? Math.round(n) : null);
+      },
+      key: 'budget' as const,
+      type: 'number' as const,
+    },
   ] as const;
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => {
     if (questions[step].type === 'textarea' && textareaRef.current) {
       textareaRef.current.style.height = '0px';
-      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + 12 + 'px';
     }
   }, [inputValue, step]);
 
@@ -47,25 +73,22 @@ export default function StartPage() {
     setTimeout(() => {
       setMessages(prev => [...prev, { from: 'bot', text: line }]);
       setBotTyping(false);
-    }, 350);
+    }, 300);
   }
 
   function validateAndCommit(val: string) {
     const q = questions[step];
-    if (q.key === 'date' && !/^\d{2}-\d{2}$/.test(val)) {
-      setMessages(prev => [...prev, { from: 'bot', text: 'Format as MM-DD (e.g., 12-15).' }]);
-      setInputValue('');
-      return false;
-    }
+
     if (q.key === 'budget') {
-      const num = Number(val.replace(/[^\d.]/g, ''));
-      if (!Number.isFinite(num) || num <= 0) {
+      const n = Number(val.replace(/[^\d.]/g, ''));
+      if (!Number.isFinite(n) || n <= 0) {
         setMessages(prev => [...prev, { from: 'bot', text: 'Please enter a positive number like 300.' }]);
         setInputValue('');
         return false;
       }
-      setTargetBudget(Math.round(num));
+      setBudget(Math.round(n));
     }
+
     q.setter(val);
     setMessages(prev => [...prev, { from: 'user', text: val }]);
     return true;
@@ -75,6 +98,7 @@ export default function StartPage() {
     const val = inputValue.trim();
     if (!val) return;
     if (!validateAndCommit(val)) return;
+
     if (step < questions.length - 1) {
       setStep(s => s + 1);
       setInputValue('');
@@ -89,9 +113,11 @@ export default function StartPage() {
     setMessages(prev => [...prev, { from: 'bot', text: 'Finding gift ideas…' }]);
 
     const surveySummary = {
-      name, relationship, occasion, date, about,
-      budget_range: budgetDisplay || (targetBudget ? `$${targetBudget}` : ''),
-      target_budget_usd: targetBudget ?? null,
+      relationship,
+      about,
+      smile_scene: smileScene,
+      talk_hours: talkHours,
+      budget: budget ?? undefined, // number
     };
 
     try {
@@ -100,15 +126,15 @@ export default function StartPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ surveySummary }),
       });
-      if (!res.ok) throw new Error(`API error: ${res.status}`);
 
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
       const suggestions = await res.json();
       if (!Array.isArray(suggestions) || suggestions.length === 0) throw new Error('No valid suggestions.');
 
       localStorage.setItem('clockwork_suggestions', JSON.stringify(suggestions));
       localStorage.setItem('clockwork_last_form', JSON.stringify(surveySummary));
       router.push('/results');
-    } catch {
+    } catch (e) {
       setMessages(prev => [...prev, { from: 'bot', text: 'Hit a snag. Tap Send again in a few seconds.' }]);
       setIsSubmitting(false);
     }
@@ -122,7 +148,12 @@ export default function StartPage() {
         <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
           <div className="space-y-3">
             {messages.map((m, i) => (
-              <div key={i} className={`px-3 py-2 rounded-lg max-w-[80%] ${m.from === 'bot' ? 'bg-gray-100 text-left' : 'bg-blue-100 text-right ml-auto'}`}>
+              <div
+                key={i}
+                className={`px-3 py-2 rounded-lg max-w-[80%] ${
+                  m.from === 'bot' ? 'bg-gray-100 text-left' : 'bg-blue-100 text-right ml-auto'
+                }`}
+              >
                 {m.text}
               </div>
             ))}
@@ -134,7 +165,10 @@ export default function StartPage() {
           </div>
 
           {!isSubmitting && (
-            <form onSubmit={(e) => { e.preventDefault(); if (inputValue.trim()) handleNext(); }} className="flex gap-2 mt-4 items-end">
+            <form
+              onSubmit={(e) => { e.preventDefault(); if (inputValue.trim()) handleNext(); }}
+              className="flex gap-2 mt-4 items-end"
+            >
               {questions[step].type === 'textarea' ? (
                 <textarea
                   ref={textareaRef}
@@ -151,7 +185,7 @@ export default function StartPage() {
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   className="flex-1 border border-gray-300 p-3 rounded-lg"
-                  placeholder={questions[step].key === 'date' ? 'MM-DD' : 'Type your answer…'}
+                  placeholder={questions[step].key === 'budget' ? 'e.g., 300' : 'Type your answer…'}
                 />
               )}
               <Button type="submit" size="md">Send</Button>
